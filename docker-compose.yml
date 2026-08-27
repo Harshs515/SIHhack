@@ -1,0 +1,134 @@
+version: '3.8'
+
+services:
+  # Database Layer - PostgreSQL with PostGIS extension
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: sih_postgis
+    environment:
+      POSTGRES_DB: cybercrime_db
+      POSTGRES_USER: mha_admin
+      POSTGRES_PASSWORD: SecureMHA_Pass2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mha_admin -d cybercrime_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sih_network
+
+  # ML Service - Python FastAPI (DBSCAN & XGBoost Inference Engine)
+  ml-service:
+    build:
+      context: ./ml_service
+    container_name: sih_ml_service
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://mha_admin:SecureMHA_Pass2026@postgres:5432/cybercrime_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sih_network
+
+  # API Backend - Node.js Express Server
+  backend:
+    build:
+      context: ./backend
+    container_name: sih_backend
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: 5000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: cybercrime_db
+      DB_USER: mha_admin
+      DB_PASS: SecureMHA_Pass2026
+      ML_SERVICE_URL: http://ml-service:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ml-service:
+        condition: service_started
+    networks:
+      - sih_network
+
+  # Frontend - React + Leaflet Map Dashboard
+  frontend:
+    build:
+      context: ./frontend
+    container_name: sih_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_BASE_URL: http://localhost:5000/api
+    depends_on:
+      - backend
+    networks:
+      - sih_network
+
+  # Orchestration - Apache Airflow Scheduler & Webserver
+  airflow-webserver:
+    image: apache/airflow:2.8.1-python3.10
+    container_name: sih_airflow_webserver
+    command: webserver
+    ports:
+      - "8080:8080"
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    volumes:
+      - ./orchestration/dags:/opt/airflow/dags
+    networks:
+      - sih_network
+
+  airflow-scheduler:
+    image: apache/airflow:2.8.1-python3.10
+    container_name: sih_airflow_scheduler
+    command: scheduler
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    volumes:
+      - ./orchestration/dags:/opt/airflow/dags
+    networks:
+      - sih_network
+
+  # Simulation - Apache Spark Master & Worker
+  spark-master:
+    image: bitnami/spark:3.5.0
+    container_name: sih_spark_master
+    environment:
+      - SPARK_MODE=master
+    ports:
+      - "7077:7077"
+      - "8081:8081"
+    networks:
+      - sih_network
+
+  spark-worker:
+    image: bitnami/spark:3.5.0
+    container_name: sih_spark_worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+    depends_on:
+      - spark-master
+    networks:
+      - sih_network
+
+networks:
+  sih_network:
+    driver: bridge
+
+volumes:
+  pgdata:

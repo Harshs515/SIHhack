@@ -1,0 +1,32 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.pytest_cache/
+
+# Environment variables
+.env
+.env.local
+
+# Build output
+dist/
+build/
+
+# Docker volumes & logs
+pgdata/
+airflow_logs/
+spark_logs/
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
