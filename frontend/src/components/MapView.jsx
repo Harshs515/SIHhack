@@ -32,7 +32,7 @@ const targetAtmIcon = L.divIcon({
 });
 
 export default function MapView({ complaints, hotspots, atms, policeStations, theme }) {
-  const defaultPosition = [28.6250, 77.2200]; // Delhi NCR central focus
+  const defaultPosition = [19.0760, 72.8777];
 
   // Layer Toggles
   const [showComplaints, setShowComplaints] = useState(true);

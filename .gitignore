@@ -12,9 +12,15 @@ venv/
 ENV/
 .pytest_cache/
 
-# Environment variables
+# Environment variables — NEVER commit these
 .env
 .env.local
+.env.production
+.env.development
+backend/.env
+frontend/.env
+ml_service/.env
+**/.env
 
 # Build output
 dist/
