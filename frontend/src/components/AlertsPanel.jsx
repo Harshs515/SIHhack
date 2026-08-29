@@ -1,123 +1,147 @@
 import React from 'react';
-import { AlertTriangle, Clock, RefreshCw, Send, ShieldCheck, Cpu } from 'lucide-react';
+import { ArrowUpRight, Lock, Mail, FileText, Axe, Send, RefreshCw } from 'lucide-react';
 
 export default function AlertsPanel({ hotspots, onTriggerML, isRunningML }) {
+  // Mock threat feed items matching screenshot aesthetics + live LEA actionable intelligence
+  const defaultFeedItems = [
+    {
+      id: 'tf-1',
+      title: 'Ransomware Detected',
+      detail: '192.168.10.45 ➔ SERVER-01',
+      severity: 'Critical',
+      badgeColor: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
+      time: '8 sec ago',
+      icon: Lock,
+      isFlagged: true
+    },
+    {
+      id: 'tf-2',
+      title: 'Phishing Attempt Blocked',
+      detail: '172.217.14.9 ➔ sarah@gmail.com',
+      severity: 'High',
+      badgeColor: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+      time: '1 min ago',
+      icon: Mail,
+      isFlagged: false
+    },
+    {
+      id: 'tf-3',
+      title: 'Suspicious File Detected',
+      detail: 'workstation-56 ➔ HR-LAPTOP-12',
+      severity: 'Low',
+      badgeColor: 'bg-sky-500/10 text-sky-500 border-sky-500/20',
+      time: '44 sec ago',
+      icon: FileText,
+      isFlagged: false
+    },
+    {
+      id: 'tf-4',
+      title: 'Brute Force Attack',
+      detail: '192.168.10.45 ➔ VPN-GATEWAY',
+      severity: 'Medium',
+      badgeColor: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',
+      time: '2 min ago',
+      icon: Axe,
+      isFlagged: true
+    }
+  ];
+
   return (
-    <div className="glass-panel" style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '18px' }}>
+    <div className="theme-card rounded-2xl p-4 h-full flex flex-col justify-between shadow-sm">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <AlertTriangle color="#ff4757" size={22} />
-          <div>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700 }}>Actionable LEA Intelligence</h3>
-            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Proactive Cash Withdrawal & Police Station Dispatch</p>
-          </div>
+      <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
+        <h3 className="text-sm font-bold text-[var(--text-main)] tracking-tight">Live Threats Feed</h3>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onTriggerML}
+            disabled={isRunningML}
+            className="text-[11px] font-semibold text-sky-500 bg-sky-500/10 hover:bg-sky-500/20 px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 disabled:opacity-50"
+          >
+            <RefreshCw size={12} className={isRunningML ? 'animate-spin' : ''} />
+            {isRunningML ? 'Scanning...' : 'Run ML Scan'}
+          </button>
+          <ArrowUpRight size={16} className="text-[var(--text-sub)] hover:text-[var(--text-main)] transition-colors cursor-pointer" />
         </div>
-        <button
-          onClick={onTriggerML}
-          disabled={isRunningML}
-          style={{
-            background: isRunningML ? 'rgba(0, 210, 255, 0.2)' : 'linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%)',
-            color: '#fff',
-            border: 'none',
-            padding: '8px 14px',
-            borderRadius: '8px',
-            cursor: isRunningML ? 'not-allowed' : 'pointer',
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            boxShadow: '0 4px 14px rgba(0, 210, 255, 0.3)'
-          }}
-        >
-          <RefreshCw size={14} style={{ animation: isRunningML ? 'spin 1s linear infinite' : 'none' }} />
-          {isRunningML ? 'Processing...' : 'Run Spatial ML'}
-        </button>
       </div>
 
-      {/* Alert Stream List */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {hotspots.length === 0 ? (
-          <div style={{ textTransform: 'uppercase', textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-            No Active High-Risk Hotspots. Click "Run Spatial ML" to execute spatial DBSCAN & XGBoost withdrawal forecasting.
-          </div>
-        ) : (
-          hotspots.map((hotspot) => (
-            <div
-              key={hotspot.id}
-              className="glass-panel glass-panel-hover"
-              style={{
-                padding: '14px',
-                borderRadius: '10px',
-                borderLeft: '4px solid #ff4757',
-                background: 'rgba(255, 71, 87, 0.05)'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
-                <span className="pulse-badge danger">
-                  <span className="pulse-dot"></span> Risk {(parseFloat(hotspot.risk_score) * 100).toFixed(0)}%
-                </span>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Clock size={12} /> Window: 45 Mins
-                </span>
-              </div>
-
-              {/* Model Provenance Badge */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '4px 0 8px 0', fontSize: '0.7rem', color: '#00d2ff' }}>
-                <Cpu size={12} />
-                <span>Model Run #{hotspot.model_run_id || 1} ({hotspot.model_version || 'v1.0.4-spatial'}) — Acc: {(parseFloat(hotspot.model_accuracy || 0.942) * 100).toFixed(1)}%</span>
-              </div>
-
-              <h4 style={{ fontSize: '0.9rem', color: '#fff', marginBottom: '4px' }}>
-                {hotspot.bank_name || 'ATM Location'} ({hotspot.atm_id || 'ID Pending'})
-              </h4>
-
-              <p style={{ fontSize: '0.78rem', color: '#cbd5e1', lineHeight: '1.4', marginBottom: '10px' }}>
-                {hotspot.actionable_intelligence}
-              </p>
-
-              {/* LEA Police Station Badge */}
-              {hotspot.police_station_name && (
-                <div style={{
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  background: 'rgba(59, 130, 246, 0.15)',
-                  border: '1px solid rgba(59, 130, 246, 0.3)',
-                  color: '#93c5fd',
-                  fontSize: '0.73rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  marginBottom: '10px'
-                }}>
-                  <ShieldCheck size={14} />
-                  <span>Assigned LEA: <strong>{hotspot.police_station_name}</strong> ({hotspot.police_contact})</span>
+      {/* Feed List */}
+      <div className="flex-1 overflow-y-auto my-3 space-y-3 pr-1">
+        {/* Hotspots / Interventions List */}
+        {hotspots && hotspots.length > 0 && hotspots.map((h) => (
+          <div
+            key={`hs-${h.id}`}
+            className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/10 transition-all flex flex-col gap-2"
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-500 shrink-0">
+                  <Lock size={15} />
                 </div>
-              )}
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                <span>Target Vol: <strong>₹{parseFloat(hotspot.total_fraud_volume).toLocaleString()}</strong></span>
-                <button style={{
-                  background: 'linear-gradient(135deg, #ff4757 0%, #ff6b81 100%)',
-                  border: 'none',
-                  color: '#fff',
-                  padding: '5px 10px',
-                  borderRadius: '6px',
-                  fontSize: '0.72rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  boxShadow: '0 2px 8px rgba(255, 71, 87, 0.3)'
-                }}>
-                  <Send size={11} /> Dispatch Police Unit
-                </button>
+                <div>
+                  <h4 className="text-xs font-bold text-[var(--text-main)] leading-snug">
+                    {h.bank_name || 'ATM Withdrawal Risk'} ({h.atm_id})
+                  </h4>
+                  <p className="text-[11px] font-mono text-[var(--text-muted)] mt-0.5">
+                    Target Vol: ₹{parseFloat(h.total_fraud_volume || 1050000).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full border bg-rose-500/10 text-rose-500 border-rose-500/20">
+                  Critical
+                </span>
+                <span className="text-[10px] text-[var(--text-sub)]">Just now</span>
               </div>
             </div>
-          ))
-        )}
+
+            <p className="text-[11px] text-[var(--text-muted)] leading-relaxed pl-10">
+              {h.actionable_intelligence || 'Mule withdrawal forecast active. Immediate police station dispatch advised.'}
+            </p>
+
+            <div className="pl-10 pt-1 flex items-center justify-between">
+              <span className="text-[10px] font-semibold text-sky-500">
+                LEA: {h.police_station_name || 'Cyber PS'}
+              </span>
+              <button className="text-[11px] font-semibold bg-gradient-to-r from-rose-500 to-rose-600 text-white px-2.5 py-1 rounded-lg hover:brightness-110 shadow-sm transition-all flex items-center gap-1">
+                <Send size={10} /> Dispatch Unit
+              </button>
+            </div>
+          </div>
+        ))}
+
+        {/* Standard Threat Feed Items matching screenshot */}
+        {defaultFeedItems.map((item) => {
+          const IconComp = item.icon;
+          return (
+            <div
+              key={item.id}
+              className="p-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-main)] hover:bg-[var(--bg-card-hover)] transition-all flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-muted)] shrink-0 shadow-sm">
+                  <IconComp size={16} />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-xs font-bold text-[var(--text-main)] truncate">
+                    {item.title}
+                  </h4>
+                  <p className="text-[11px] font-mono text-[var(--text-muted)] truncate mt-0.5">
+                    {item.detail}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
+                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${item.badgeColor}`}>
+                  {item.severity}
+                </span>
+                <span className="text-[10px] text-[var(--text-sub)]">
+                  {item.time}
+                </span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
