@@ -1,47 +1,8 @@
-<<<<<<< HEAD
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-:root {
-  /* Light theme defaults (matching reference screenshot) */
-  --bg-main: #f4f5f8;
-  --bg-card: #ffffff;
-  --bg-card-hover: #f8fafc;
-  --bg-header: #ffffff;
-  --border-color: #e2e8f0;
-  --border-glow: rgba(0, 210, 255, 0.3);
-
-  --text-main: #0f172a;
-  --text-muted: #64748b;
-  --text-sub: #94a3b8;
-
-  --primary: #00d2ff;
-  --primary-gradient: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%);
-
-  --danger: #ff4757;
-  --danger-bg: rgba(255, 71, 87, 0.08);
-  --warning: #ffa502;
-  --success: #10b981;
-
-  --font-sans: 'Outfit', 'Plus Jakarta Sans', sans-serif;
-}
-
-.dark {
-  /* Dark theme overrides */
-  --bg-main: #0b0f19;
-  --bg-card: rgba(18, 26, 43, 0.85);
-  --bg-card-hover: rgba(28, 39, 64, 0.95);
-  --bg-header: rgba(15, 23, 42, 0.9);
-  --border-color: rgba(255, 255, 255, 0.08);
-
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --text-sub: #64748b;
-=======
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root {
   --bg-dark: #070b14;
@@ -75,7 +36,27 @@
   --font-family: 'Plus Jakarta Sans', 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-display: 'Outfit', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
->>>>>>> test
+  --bg-main: var(--bg-dark);
+}
+
+:root[data-theme="light"] {
+  --bg-dark: #f8fafc;
+  --bg-surface: #f1f5f9;
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --bg-card-hover: rgba(241, 245, 249, 0.95);
+  --bg-sidebar: rgba(248, 250, 252, 0.96);
+  
+  --border-glass: rgba(15, 23, 42, 0.08);
+  --border-glass-bright: rgba(15, 23, 42, 0.16);
+  --border-glow: rgba(59, 130, 246, 0.35);
+
+  --primary: #2563eb;
+  --primary-rgb: 37, 99, 235;
+  --primary-glow: rgba(37, 99, 235, 0.2);
+
+  --text-main: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
 }
 
 * {
@@ -89,31 +70,6 @@ body {
   color: var(--text-main);
   font-family: var(--font-sans);
   overflow-x: hidden;
-<<<<<<< HEAD
-  min-height: 100vh;
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-/* Glassmorphism Cards */
-.theme-card {
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.dark .theme-card {
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
-
-.theme-card-hover:hover {
-  background-color: var(--bg-card-hover);
-  border-color: var(--border-glow);
-  transform: translateY(-1px);
-}
-
-/* Pulsing Badges */
-=======
   height: 100vh;
   background-image: 
     radial-gradient(circle at 15% 15%, rgba(0, 229, 255, 0.04) 0%, transparent 45%),
@@ -151,25 +107,11 @@ body {
 }
 
 /* Luminous Pulsing Badge */
->>>>>>> test
 .pulse-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-<<<<<<< HEAD
-  border-radius: 9999px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.pulse-badge.danger {
-  background: rgba(255, 71, 87, 0.12);
-  color: var(--danger);
-  border: 1px solid rgba(255, 71, 87, 0.3);
-=======
   border-radius: 20px;
   font-size: 0.72rem;
   font-weight: 700;
@@ -210,7 +152,6 @@ body {
   background: rgba(16, 185, 129, 0.12);
   color: var(--success);
   border: 1px solid rgba(16, 185, 129, 0.3);
->>>>>>> test
 }
 
 .pulse-badge.success {
@@ -223,16 +164,6 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-<<<<<<< HEAD
-  background-color: currentColor;
-  animation: pulse-ring 1.5s infinite;
-}
-
-@keyframes pulse-ring {
-  0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); }
-  70% { box-shadow: 0 0 0 8px rgba(255, 71, 87, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
-=======
   background: currentColor;
   animation: pulse-ring 1.6s cubic-bezier(0.24, 0, 0.38, 1) infinite;
 }
@@ -247,7 +178,6 @@ body {
   100% {
     box-shadow: 0 0 0 0 rgba(255, 56, 92, 0);
   }
->>>>>>> test
 }
 
 @keyframes spin {
@@ -261,17 +191,10 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-<<<<<<< HEAD
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.3);
-=======
   background: rgba(0, 0, 0, 0.25);
 }
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.18);
->>>>>>> test
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
@@ -282,26 +205,6 @@ body {
 .leaflet-container {
   width: 100%;
   height: 100%;
-<<<<<<< HEAD
-  border-radius: 1rem;
-  z-index: 10;
-}
-
-.dark .leaflet-container {
-  background: #0f172a !important;
-}
-
-.leaflet-popup-content-wrapper {
-  background: var(--bg-card) !important;
-  color: var(--text-main) !important;
-  border: 1px solid var(--border-color) !important;
-  border-radius: 0.75rem !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2) !important;
-}
-
-.leaflet-popup-tip {
-  background: var(--bg-card) !important;
-=======
   background: #080d1a !important;
   border-radius: 12px;
 }
@@ -317,7 +220,6 @@ body {
 
 .leaflet-popup-tip {
   background: #0c1424 !important;
->>>>>>> test
 }
 
 /* Modern Cyber Button Styles */
