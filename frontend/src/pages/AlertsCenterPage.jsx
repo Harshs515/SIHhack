@@ -35,36 +35,12 @@ export default function AlertsCenterPage() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', overflowY: 'auto' }}>
-      {/* Top Header */}
-      <div className="glass-panel" style={{ padding: '16px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '10px',
-            background: 'linear-gradient(135deg, #ff385c 0%, #ffaa00 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            boxShadow: '0 0 18px rgba(255, 56, 92, 0.4)'
-          }}>
-            <BellRing size={24} strokeWidth={2.5} />
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fff' }}>
-                Real-Time Alerts & Multi-Channel Broadcast Hub
-              </h2>
-              <span className="pulse-badge danger">
-                <span className="pulse-dot"></span> Redis Pub/Sub Live
-              </span>
-            </div>
-            <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-              FCM Android Push (DND Bypass), Bank Nodal Desk Pre-Alerts & 1930 Helpline Gateways
-            </p>
-          </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '12px 24px 28px' }}>
+      {/* Page Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '4px' }}>
+        <div>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.01em' }}>Alerts</h2>
+          <p style={{ fontSize: '0.66rem', color: 'var(--text-muted)', marginTop: '2px' }}>Real-time priority alert stream</p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

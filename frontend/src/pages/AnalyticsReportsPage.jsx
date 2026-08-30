@@ -42,36 +42,12 @@ export default function AnalyticsReportsPage() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', overflowY: 'auto' }}>
-      {/* Top Banner */}
-      <div className="glass-panel" style={{ padding: '16px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '10px',
-            background: 'linear-gradient(135deg, #3b82f6 0%, #00e5ff 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#040914',
-            boxShadow: '0 0 18px rgba(59, 130, 246, 0.4)'
-          }}>
-            <BarChart3 size={24} strokeWidth={2.5} />
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fff' }}>
-                Executive Analytics & I4C Intelligence Dossiers
-              </h2>
-              <span className="pulse-badge primary">
-                <span className="pulse-dot"></span> Sovereign Reports
-              </span>
-            </div>
-            <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-              Proactive Recovery Benchmarks vs Historical Baseline & Geospatial Typology Metrics
-            </p>
-          </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '12px 24px 28px' }}>
+      {/* Page Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '4px' }}>
+        <div>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.01em' }}>Analytics</h2>
+          <p style={{ fontSize: '0.66rem', color: 'var(--text-muted)', marginTop: '2px' }}>Recovery benchmarks & intelligence reports</p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
