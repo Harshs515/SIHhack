@@ -26,7 +26,8 @@ import {
   MOCK_POLICE_STATIONS
 } from './data/mockData';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
 export default function App() {
   const [complaints, setComplaints] = useState(MOCK_COMPLAINTS);
@@ -73,11 +74,22 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // =========================
+  // ML TRIGGER
+  // =========================
+
   const handleTriggerML = async () => {
     setIsRunningML(true);
     setMlStatus('COMPUTING');
+
     try {
-      await fetch(`${API_BASE_URL}/predictions/trigger`, { method: 'POST' });
+      await fetch(
+        `${API_BASE_URL}/predictions/trigger`,
+        {
+          method: 'POST'
+        }
+      );
+
       await fetchData();
     } catch (e) {
       // Offline fallback simulation
