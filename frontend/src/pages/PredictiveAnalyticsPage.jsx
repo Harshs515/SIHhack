@@ -66,36 +66,12 @@ export default function PredictiveAnalyticsPage({ onTriggerML, isRunningML }) {
     : DEFAULT_SHAP_FEATURES;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', overflowY: 'auto' }}>
-      {/* Top Banner: Architecture & Accuracy Provenance */}
-      <div className="glass-panel" style={{ padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            width: '46px',
-            height: '46px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            boxShadow: '0 0 20px rgba(139, 92, 246, 0.4)'
-          }}>
-            <BrainCircuit size={26} />
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff' }}>
-                AI/ML Predictive Intelligence Hub
-              </h2>
-              <span className="pulse-badge primary">
-                <span className="pulse-dot"></span> MLOps Active
-              </span>
-            </div>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Ensemble XGBoost (21-District Classifier) + ST-GNN + Spatiotemporal DBSCAN Clustering
-            </p>
-          </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '12px 24px 28px' }}>
+      {/* Page Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '4px' }}>
+        <div>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.01em' }}>Predictive AI</h2>
+          <p style={{ fontSize: '0.66rem', color: 'var(--text-muted)', marginTop: '2px' }}>ML forecasting engine & SHAP explainability</p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

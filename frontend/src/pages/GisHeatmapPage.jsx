@@ -71,17 +71,12 @@ export default function GisHeatmapPage({ complaints = [], hotspots = [], atms = 
   });
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '14px', height: '100%', minHeight: 0 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '14px', height: '600px', padding: '0 24px 24px' }}>
       {/* Left GIS Control Panel */}
       <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>
-          <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(255, 71, 87, 0.2)', border: '1px solid rgba(255, 71, 87, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ff4757' }}>
-            <Layers size={18} />
-          </div>
-          <div>
-            <h3 style={{ fontSize: '0.95rem', fontWeight: 700 }}>GIS Heatmap Controls</h3>
-            <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Spatial Risk & Buffer Modeling</p>
-          </div>
+        <div style={{ borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px', marginBottom: '4px' }}>
+          <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fff' }}>GIS Heatmap</h3>
+          <p style={{ fontSize: '0.64rem', color: 'var(--text-muted)', marginTop: '2px' }}>Spatial risk & buffer zones</p>
         </div>
 
         {/* State Selector */}

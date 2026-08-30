@@ -56,36 +56,12 @@ export default function LeaInterfacePage() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', overflowY: 'auto' }}>
-      {/* Top Header */}
-      <div className="glass-panel" style={{ padding: '16px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '10px',
-            background: 'linear-gradient(135deg, #00e676 0%, #3b82f6 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#040914',
-            boxShadow: '0 0 18px rgba(0, 230, 118, 0.4)'
-          }}>
-            <ShieldAlert size={24} strokeWidth={2.5} />
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fff' }}>
-                Police & Law Enforcement (LEA) Dispatch Console
-              </h2>
-              <span className="pulse-badge success">
-                <span className="pulse-dot"></span> Sovereign LEA Portal
-              </span>
-            </div>
-            <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-              Proactive Field Intervention, PCR Patrol Vectoring & Golden Hour Cash Extraction Interception
-            </p>
-          </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '12px 24px 28px' }}>
+      {/* Page Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '4px' }}>
+        <div>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.01em' }}>LEA Dispatch</h2>
+          <p style={{ fontSize: '0.66rem', color: 'var(--text-muted)', marginTop: '2px' }}>PCR intercept vectoring & patrol coordination</p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

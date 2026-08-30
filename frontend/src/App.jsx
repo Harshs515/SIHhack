@@ -3,11 +3,11 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 // Global Navigation & Error Boundary Components
 import Navbar from './components/Navbar';
-import Sidebar from './components/Sidebar';
 import ErrorBoundary from './components/ErrorBoundary';
 import AiChatbot from './components/AiChatbot';
 
-// Specialized Domain Pages
+// Pages
+import DashboardPage from './pages/DashboardPage';
 import CommandCenter from './pages/CommandCenter';
 import GisHeatmapPage from './pages/GisHeatmapPage';
 import PredictiveAnalyticsPage from './pages/PredictiveAnalyticsPage';
@@ -97,110 +97,106 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', padding: '12px 16px', gap: '12px' }}>
-        {/* Top Command Bar */}
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+
+        {/* Fade Navbar — fuses seamlessly with the background */}
         <Navbar
           isRunningML={isRunningML}
           onTriggerML={handleTriggerML}
-          activeAlertsCount={(hotspots || []).filter(h => (h.alert_tier || h.atm_risk_tier) === 'P1' || (h.atm_risk_tier === 'CRITICAL')).length || 2}
+          activeAlertsCount={(hotspots || []).filter(h =>
+            (h.alert_tier === 'P1') || (h.atm_risk_tier === 'CRITICAL')
+          ).length || 2}
         />
 
-        {/* Main Application Layout: Left Sidebar + Dynamic Page Content */}
-        <div style={{ flex: 1, display: 'flex', gap: '12px', minHeight: 0, overflow: 'hidden' }}>
-          {/* Persistent Left Navigation Sidebar */}
-          <Sidebar />
+        {/* Page content — full width, no sidebar */}
+        <main style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+          <ErrorBoundary>
+            <Routes>
+              {/* Default → Dashboard */}
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-          {/* Dynamic Page Views with Error Boundary */}
-          <main style={{ flex: 1, height: '100%', minWidth: 0, overflow: 'hidden' }}>
-            <ErrorBoundary>
-              <Routes>
-                {/* 1. Master Command & Control Center */}
-                <Route
-                  path="/"
-                  element={
-                    <CommandCenter
-                      complaints={complaints}
-                      hotspots={hotspots}
-                      atms={atms}
-                      policeStations={policeStations}
-                      isRunningML={isRunningML}
-                      onTriggerML={handleTriggerML}
-                      mlStatus={mlStatus}
-                    />
-                  }
-                />
+              {/* 0. Overview Dashboard */}
+              <Route
+                path="/dashboard"
+                element={
+                  <DashboardPage
+                    complaints={complaints}
+                    hotspots={hotspots}
+                  />
+                }
+              />
 
-                {/* 2. Fullscreen GIS Risk Heatmap */}
-                <Route
-                  path="/gis-heatmap"
-                  element={
-                    <GisHeatmapPage
-                      complaints={complaints}
-                      hotspots={hotspots}
-                      atms={atms}
-                      policeStations={policeStations}
-                    />
-                  }
-                />
+              {/* 1. Master Command & Control Center */}
+              <Route
+                path="/command-center"
+                element={
+                  <CommandCenter
+                    complaints={complaints}
+                    hotspots={hotspots}
+                    atms={atms}
+                    policeStations={policeStations}
+                    isRunningML={isRunningML}
+                    onTriggerML={handleTriggerML}
+                    mlStatus={mlStatus}
+                  />
+                }
+              />
 
-                {/* 3. AI/ML Predictive Hub (XGBoost, ST-DBSCAN, SHAP XAI, HITL RL) */}
-                <Route
-                  path="/predictive-analytics"
-                  element={
-                    <PredictiveAnalyticsPage
-                      onTriggerML={handleTriggerML}
-                      isRunningML={isRunningML}
-                    />
-                  }
-                />
+              {/* 2. Fullscreen GIS Risk Heatmap */}
+              <Route
+                path="/gis-heatmap"
+                element={
+                  <GisHeatmapPage
+                    complaints={complaints}
+                    hotspots={hotspots}
+                    atms={atms}
+                    policeStations={policeStations}
+                  />
+                }
+              />
 
-                {/* 4. Mule Chain Graph & Neo4j Explorer */}
-                <Route
-                  path="/mule-graph"
-                  element={<MuleGraphPage />}
-                />
+              {/* 3. AI/ML Predictive Hub */}
+              <Route
+                path="/predictive-analytics"
+                element={
+                  <PredictiveAnalyticsPage
+                    onTriggerML={handleTriggerML}
+                    isRunningML={isRunningML}
+                  />
+                }
+              />
 
-                {/* 5. Law Enforcement Agency (LEA) Tactical Dispatch */}
-                <Route
-                  path="/lea-interface"
-                  element={<LeaInterfacePage />}
-                />
+              {/* 4. Mule Chain Graph & Neo4j Explorer */}
+              <Route path="/mule-graph" element={<MuleGraphPage />} />
 
-                {/* 6. Real-Time Alerts & Notification Center */}
-                <Route
-                  path="/alerts-center"
-                  element={<AlertsCenterPage />}
-                />
+              {/* 5. Law Enforcement Agency (LEA) Tactical Dispatch */}
+              <Route path="/lea-interface" element={<LeaInterfacePage />} />
 
-                {/* 7. NCRP & 1930 Cybercrime Complaint Ingestion Suite */}
-                <Route
-                  path="/ncrp-complaints"
-                  element={
-                    <NcrpComplaintsPage
-                      complaints={complaints}
-                      onAddComplaint={handleAddComplaint}
-                    />
-                  }
-                />
+              {/* 6. Real-Time Alerts & Notification Center */}
+              <Route path="/alerts-center" element={<AlertsCenterPage />} />
 
-                {/* 8. Executive Analytics & I4C Dossier Reports */}
-                <Route
-                  path="/analytics-reports"
-                  element={<AnalyticsReportsPage />}
-                />
+              {/* 7. NCRP & 1930 Cybercrime Complaint Ingestion Suite */}
+              <Route
+                path="/ncrp-complaints"
+                element={
+                  <NcrpComplaintsPage
+                    complaints={complaints}
+                    onAddComplaint={handleAddComplaint}
+                  />
+                }
+              />
 
-                {/* 9. End-to-End Pipeline & System Topology */}
-                <Route
-                  path="/pipeline-topology"
-                  element={<PipelineTopologyPage />}
-                />
+              {/* 8. Executive Analytics & I4C Dossier Reports */}
+              <Route path="/analytics-reports" element={<AnalyticsReportsPage />} />
 
-                {/* Fallback redirect */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </ErrorBoundary>
-          </main>
-        </div>
+              {/* 9. End-to-End Pipeline & System Topology */}
+              <Route path="/pipeline-topology" element={<PipelineTopologyPage />} />
+
+              {/* Fallback redirect */}
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </ErrorBoundary>
+        </main>
 
         {/* Global AI Voice & Chat Copilot */}
         <AiChatbot />
