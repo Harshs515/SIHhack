@@ -160,56 +160,33 @@ const TIER_COLORS = {
   P3: "#3b82f6",
 };
 
-/* ── Current Month Date Range Helper ───────────────────────────── */
+/* ── Current Month Helper ─────────────────────────────────────── */
 
-/*
-  Automatically calculates:
-
-  Start:
-  First day of current month at 00:00
-
-  End:
-  Last day of current month at 23:59
-
-  Example:
-  August 2026:
-  2026-08-01T00:00
-  2026-08-31T23:59
-
-  September 2026:
-  2026-09-01T00:00
-  2026-09-30T23:59
-*/
-
-const getCurrentMonthRange = () => {
+function getCurrentMonthRange() {
   const now = new Date();
 
-  const year = now.getFullYear();
-  const month = now.getMonth();
+  // First day of current month
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0);
 
-  // First day of the current month
-  const firstDay = new Date(year, month, 1, 0, 0);
+  // Last day of current month
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59);
 
-  // Last day of the current month
-  // Using day 0 of the next month automatically handles
-  // months with 28, 29, 30, or 31 days.
-  const lastDay = new Date(year, month + 1, 0, 23, 59);
+  // datetime-local requires YYYY-MM-DDTHH:mm
+  const formatForDateTimeLocal = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
 
-  const formatDateTimeLocal = (date) => {
-    const pad = (num) => String(num).padStart(2, "0");
-
-    return `${date.getFullYear()}-${pad(
-      date.getMonth() + 1,
-    )}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(
-      date.getMinutes(),
-    )}`;
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
   return {
-    start: formatDateTimeLocal(firstDay),
-    end: formatDateTimeLocal(lastDay),
+    start: formatForDateTimeLocal(firstDay),
+    end: formatForDateTimeLocal(lastDay),
   };
-};
+}
 
 /* ── Sparkline ─────────────────────────────────────────────────── */
 
@@ -273,7 +250,9 @@ function MiniDonut({ slices }) {
   const rad = (d) => (d * Math.PI) / 180;
 
   const arc = (start, sweep) => {
-    if (sweep >= 359.9) sweep = 359.9;
+    if (sweep >= 359.9) {
+      sweep = 359.9;
+    }
 
     const s = {
       x: cx + r * Math.cos(rad(start)),
@@ -521,7 +500,9 @@ export default function DashboardPage({
   mlStatus = "ACTIVE",
   onRefreshData,
 }) {
-  // ── State for Refresh / Sync ──
+  /* ──────────────────────────────────────────────────────────────
+     Refresh / Sync State
+  ────────────────────────────────────────────────────────────── */
 
   const [lastSynced, setLastSynced] = useState(new Date());
 
@@ -529,29 +510,31 @@ export default function DashboardPage({
 
   const [timeAgoText, setTimeAgoText] = useState("Just now");
 
-  // ── State for Date Range / Month Filtering ──
-
   /*
-    Automatically get the current month.
+   * refreshKey is used to notify child components
+   * that a refresh has happened.
+   *
+   * IMPORTANT:
+   * This does NOT reload the browser.
+   * It simply changes React state.
+   */
+  const [refreshKey, setRefreshKey] = useState(0);
 
-    For example, if today is August 30, 2026:
+  /* ──────────────────────────────────────────────────────────────
+     Current Month Date Range
+  ────────────────────────────────────────────────────────────── */
 
-    startDate = 2026-08-01T00:00
-    endDate   = 2026-08-31T23:59
+  const currentMonth = useMemo(() => getCurrentMonthRange(), []);
 
-    When the month changes, the default range
-    automatically changes as well.
-  */
+  const [startDate, setStartDate] = useState(currentMonth.start);
 
-  const currentMonthRange = getCurrentMonthRange();
-
-  const [startDate, setStartDate] = useState(currentMonthRange.start);
-
-  const [endDate, setEndDate] = useState(currentMonthRange.end);
+  const [endDate, setEndDate] = useState(currentMonth.end);
 
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // ── Auto-update "Last sync" string every 10 seconds ──
+  /* ──────────────────────────────────────────────────────────────
+     Auto-update Last Sync text
+  ────────────────────────────────────────────────────────────── */
 
   useEffect(() => {
     const updateTimeAgo = () => {
@@ -575,27 +558,76 @@ export default function DashboardPage({
     return () => clearInterval(interval);
   }, [lastSynced]);
 
-  // ── Handle Refresh Action ──
+  /* ──────────────────────────────────────────────────────────────
+     Refresh ALL Dashboard States
+  ────────────────────────────────────────────────────────────── */
 
   const handleRefresh = async () => {
-    setIsSyncing(true);
-
-    if (onRefreshData) {
-      await onRefreshData();
-    } else {
-      // Simulate API fetch delay
-      await new Promise((resolve) => setTimeout(resolve, 800));
+    // Prevent duplicate clicks while refreshing
+    if (isSyncing) {
+      return;
     }
 
-    setLastSynced(new Date());
-    setTimeAgoText("Just now");
-    setIsSyncing(false);
+    try {
+      setIsSyncing(true);
+
+      /*
+       * Call the parent refresh function.
+       *
+       * The parent should fetch the latest:
+       *
+       * - complaints
+       * - hotspots
+       * - ATMs
+       * - police stations
+       * - any other dashboard data
+       *
+       * The parent updates its React states.
+       * Those new values then come back into this component
+       * through props.
+       */
+      if (onRefreshData) {
+        await onRefreshData();
+      } else {
+        /*
+         * Development fallback.
+         *
+         * This simulates an API request when no
+         * refresh function is supplied.
+         */
+        await new Promise((resolve) => setTimeout(resolve, 800));
+      }
+
+      /*
+       * Notify child components that a refresh happened.
+       *
+       * This causes effects inside CommandCenter that depend
+       * on refreshKey to run again.
+       */
+      setRefreshKey((previousKey) => previousKey + 1);
+
+      /*
+       * Update Last Sync timestamp.
+       */
+      const now = new Date();
+
+      setLastSynced(now);
+      setTimeAgoText("Just now");
+    } catch (error) {
+      console.error("Dashboard refresh failed:", error);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
-  // ── Helper to format ISO strings into clean dates ──
+  /* ──────────────────────────────────────────────────────────────
+     Format Date for Display
+  ────────────────────────────────────────────────────────────── */
 
   const formatDisplayDate = (isoString) => {
-    if (!isoString) return "";
+    if (!isoString) {
+      return "";
+    }
 
     const date = new Date(isoString);
 
@@ -614,7 +646,9 @@ export default function DashboardPage({
     return `${month} ${day}, ${year} ${hours}:${minutes}`;
   };
 
-  // ── Filter complaints based on selected date/month range ──
+  /* ──────────────────────────────────────────────────────────────
+     Filter Complaints Based on Date Range
+  ────────────────────────────────────────────────────────────── */
 
   const filteredComplaints = useMemo(() => {
     const start = new Date(startDate).getTime();
@@ -622,13 +656,23 @@ export default function DashboardPage({
     const end = new Date(endDate).getTime();
 
     return complaints.filter((c) => {
-      if (!c.created_at) return true;
+      /*
+       * Keep records with no created_at.
+       * This preserves your original behavior.
+       */
+      if (!c.created_at) {
+        return true;
+      }
 
       const cTime = new Date(c.created_at).getTime();
 
       return cTime >= start && cTime <= end;
     });
   }, [complaints, startDate, endDate]);
+
+  /* ──────────────────────────────────────────────────────────────
+     Total Fraud
+  ────────────────────────────────────────────────────────────── */
 
   const totalFraud = useMemo(
     () =>
@@ -639,15 +683,27 @@ export default function DashboardPage({
     [filteredComplaints],
   );
 
+  /* ──────────────────────────────────────────────────────────────
+     Hotspot Statistics
+  ────────────────────────────────────────────────────────────── */
+
   const p1Count = hotspots.filter((h) => h.alert_tier === "P1").length;
 
   const p2Count = hotspots.filter((h) => h.alert_tier === "P2").length;
 
   const p3Count = Math.max(hotspots.length - p1Count - p2Count, 1);
 
+  /* ──────────────────────────────────────────────────────────────
+     Other Dashboard Data
+  ────────────────────────────────────────────────────────────── */
+
   const sparkData = MOCK_HOURLY_CASHOUT_PATTERNS.map((d) => d.volume_lakhs);
 
   const recentAlerts = MOCK_ALERTS_STREAM.slice(0, 5);
+
+  /* ══════════════════════════════════════════════════════════════
+     Render
+  ══════════════════════════════════════════════════════════════ */
 
   return (
     <div
@@ -658,7 +714,7 @@ export default function DashboardPage({
         gap: "16px",
       }}
     >
-      {/* Inline styles for spinner rotation animation */}
+      {/* ── Spinner Animation ── */}
 
       <style>{`
         @keyframes spin {
@@ -676,7 +732,9 @@ export default function DashboardPage({
         }
       `}</style>
 
-      {/* ── Page Header ── */}
+      {/* ─────────────────────────────────────────────────────────
+          Page Header
+      ───────────────────────────────────────────────────────── */}
 
       <div
         className="dash-animate"
@@ -706,7 +764,9 @@ export default function DashboardPage({
             gap: "10px",
           }}
         >
-          {/* Functional Refresh Button */}
+          {/* ─────────────────────────────────────────────────────
+              Functional Refresh Button
+          ───────────────────────────────────────────────────── */}
 
           <button
             onClick={handleRefresh}
@@ -723,6 +783,7 @@ export default function DashboardPage({
               color: "var(--text-muted)",
               cursor: isSyncing ? "not-allowed" : "pointer",
               transition: "all 0.2s ease",
+              opacity: isSyncing ? 0.7 : 1,
             }}
           >
             <RefreshCw
@@ -739,12 +800,14 @@ export default function DashboardPage({
                   fontWeight: 600,
                 }}
               >
-                {timeAgoText}
+                {isSyncing ? "Syncing..." : timeAgoText}
               </span>
             </span>
           </button>
 
-          {/* Functional Date & Month Range Trigger */}
+          {/* ─────────────────────────────────────────────────────
+              Functional Date & Month Range Trigger
+          ───────────────────────────────────────────────────── */}
 
           <div
             style={{
@@ -774,9 +837,132 @@ export default function DashboardPage({
                 {formatDisplayDate(startDate)} - {formatDisplayDate(endDate)}
               </span>
             </div>
+
+            {/* ───────────────────────────────────────────────────
+                Date Range Picker Dropdown
+            ─────────────────────────────────────────────────── */}
+
+            {showDatePicker && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "120%",
+                  right: 0,
+                  zIndex: 100,
+                  background: "#0f172a",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: "8px",
+                  padding: "12px",
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.5)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  width: "260px",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "0.7rem",
+                    color: "var(--text-muted)",
+                    fontWeight: 700,
+                  }}
+                >
+                  Select Time Window
+                </div>
+
+                {/* Start Date */}
+
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "4px",
+                  }}
+                >
+                  <label
+                    style={{
+                      fontSize: "0.65rem",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Start Date & Time
+                  </label>
+
+                  <input
+                    type="datetime-local"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    style={{
+                      background: "#1e293b",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      color: "#fff",
+                      fontSize: "0.75rem",
+                      borderRadius: "4px",
+                      padding: "4px 8px",
+                    }}
+                  />
+                </div>
+
+                {/* End Date */}
+
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "4px",
+                  }}
+                >
+                  <label
+                    style={{
+                      fontSize: "0.65rem",
+                      color: "#94a3b8",
+                    }}
+                  >
+                    End Date & Time
+                  </label>
+
+                  <input
+                    type="datetime-local"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    style={{
+                      background: "#1e293b",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      color: "#fff",
+                      fontSize: "0.75rem",
+                      borderRadius: "4px",
+                      padding: "4px 8px",
+                    }}
+                  />
+                </div>
+
+                {/* Apply Filter */}
+
+                <button
+                  onClick={() => setShowDatePicker(false)}
+                  style={{
+                    marginTop: "4px",
+                    padding: "6px",
+                    background: "#3b82f6",
+                    border: "none",
+                    borderRadius: "4px",
+                    color: "#fff",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Apply Filter
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* ─────────────────────────────────────────────────────────
+          Command Center
+      ───────────────────────────────────────────────────────── */}
 
       <CommandCenter
         complaints={filteredComplaints}
@@ -786,9 +972,19 @@ export default function DashboardPage({
         isRunningML={isRunningML}
         onTriggerML={onTriggerML}
         mlStatus={mlStatus}
+        /*
+         * IMPORTANT:
+         *
+         * CommandCenter can use this value inside
+         * useEffect(..., [refreshKey]) to refresh
+         * its own internal states.
+         */
+        refreshKey={refreshKey}
       />
 
-      {/* ── Model health bar ── */}
+      {/* ─────────────────────────────────────────────────────────
+          Model Health Bar
+      ───────────────────────────────────────────────────────── */}
 
       <div
         className="dash-animate"
@@ -804,6 +1000,8 @@ export default function DashboardPage({
           border: "1px solid rgba(0,229,255,0.1)",
         }}
       >
+        {/* Model Version */}
+
         <div
           style={{
             display: "flex",
@@ -833,15 +1031,22 @@ export default function DashboardPage({
           </span>
         </div>
 
+        {/* Model Metrics */}
+
         {[
           [
             "Accuracy",
             `${(MOCK_MODEL_METRICS.overall_accuracy * 100).toFixed(1)}%`,
           ],
+
           ["Precision", `${(MOCK_MODEL_METRICS.precision * 100).toFixed(1)}%`],
+
           ["Recall", `${(MOCK_MODEL_METRICS.recall * 100).toFixed(1)}%`],
+
           ["F1", `${(MOCK_MODEL_METRICS.f1_score * 100).toFixed(1)}%`],
+
           ["Clusters", MOCK_MODEL_METRICS.clusters_identified],
+
           ["Window", MOCK_MODEL_METRICS.golden_hour_window],
         ].map(([k, v]) => (
           <div
