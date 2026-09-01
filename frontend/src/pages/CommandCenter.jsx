@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import StatsCards from "../components/StatsCards";
 import MapView from "../components/MapView";
 import AlertsPanel from "../components/AlertsPanel";
-import { Layers } from "lucide-react";
+import { Layers, RefreshCw, Calendar } from "lucide-react";
 
 export default function CommandCenter({
   complaints = [],
@@ -12,18 +12,136 @@ export default function CommandCenter({
   isRunningML,
   onTriggerML,
   mlStatus = "ACTIVE",
+  refreshKey,
 }) {
+  /* ── Date Range Helper ─────────────────────────────────────── */
+  function getCurrentMonthRange() {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59);
+    const fmt = (d) => {
+      const y = d.getFullYear();
+      const mo = String(d.getMonth() + 1).padStart(2, "0");
+      const dy = String(d.getDate()).padStart(2, "0");
+      const h = String(d.getHours()).padStart(2, "0");
+      const mi = String(d.getMinutes()).padStart(2, "0");
+      return `${y}-${mo}-${dy}T${h}:${mi}`;
+    };
+    return { start: fmt(firstDay), end: fmt(lastDay) };
+  }
+
+  /* ── Sync / Refresh State ─────────────────────────────────── */
+  const [lastSynced, setLastSynced] = useState(new Date());
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [timeAgoText, setTimeAgoText] = useState("Just now");
+
+  /* ── Date Range State ─────────────────────────────────────── */
+  const currentMonth = useMemo(() => getCurrentMonthRange(), []);
+  const [startDate, setStartDate] = useState(currentMonth.start);
+  const [endDate, setEndDate] = useState(currentMonth.end);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  /* ── Auto-update Last Sync text ───────────────────────────── */
+  useEffect(() => {
+    const update = () => {
+      const diff = Math.floor((new Date() - lastSynced) / 1000);
+      if (diff < 30) setTimeAgoText("Just now");
+      else if (diff < 60) setTimeAgoText("1 min ago");
+      else setTimeAgoText(`${Math.floor(diff / 60)} mins ago`);
+    };
+    update();
+    const iv = setInterval(update, 10000);
+    return () => clearInterval(iv);
+  }, [lastSynced]);
+
+  /* ── Refresh handler ──────────────────────────────────────── */
+  const handleRefresh = async () => {
+    if (isSyncing) return;
+    try {
+      setIsSyncing(true);
+      await new Promise((r) => setTimeout(r, 800));
+      setLastSynced(new Date());
+      setTimeAgoText("Just now");
+    } catch (e) {
+      console.error("Refresh failed:", e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  /* ── Format date for display ──────────────────────────────── */
+  const formatDisplayDate = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const month = d.toLocaleDateString("en-US", { month: "short" });
+    const h = String(d.getHours()).padStart(2, "0");
+    const mi = String(d.getMinutes()).padStart(2, "0");
+    return `${month} ${d.getDate()}, ${d.getFullYear()} ${h}:${mi}`;
+  };
+
   const [selectedState, setSelectedState] = useState("ALL");
   const [selectedTier, setSelectedTier] = useState("ALL");
 
-  // Filter hotspots and complaints safely
+  // Robust State Matcher Utility
+  const isMatchingState = (item, targetState) => {
+    if (!item) return false;
+    if (!targetState || targetState === "ALL") return true;
+    const target = targetState.toLowerCase();
+    const itemState = (item.state || "").toLowerCase();
+    const itemDistrict = (item.district || "").toLowerCase();
+    const itemCity = (item.city || "").toLowerCase();
+    const itemAddress = (item.address || item.atm_address || "").toLowerCase();
+
+    if (itemState.includes(target) || target.includes(itemState)) return true;
+    if (
+      target === "delhi" &&
+      (itemDistrict.includes("delhi") ||
+        itemCity.includes("delhi") ||
+        itemAddress.includes("delhi") ||
+        itemAddress.includes("rohini") ||
+        itemAddress.includes("connaught"))
+    )
+      return true;
+    if (
+      target === "maharashtra" &&
+      (itemDistrict.includes("mumbai") ||
+        itemDistrict.includes("pune") ||
+        itemCity.includes("mumbai") ||
+        itemCity.includes("pune") ||
+        itemAddress.includes("andheri") ||
+        itemAddress.includes("mumbai"))
+    )
+      return true;
+    if (
+      target === "karnataka" &&
+      (itemDistrict.includes("bengaluru") ||
+        itemCity.includes("bengaluru") ||
+        itemAddress.includes("koramangala") ||
+        itemAddress.includes("bengaluru"))
+    )
+      return true;
+    if (
+      target === "telangana" &&
+      (itemDistrict.includes("hyderabad") ||
+        itemCity.includes("hyderabad") ||
+        itemAddress.includes("hitech"))
+    )
+      return true;
+    if (
+      target === "gujarat" &&
+      (itemDistrict.includes("ahmedabad") ||
+        itemCity.includes("ahmedabad") ||
+        itemAddress.includes("navrangpura"))
+    )
+      return true;
+
+    return false;
+  };
+
+  // Filter hotspots, complaints, atms, and police stations safely
   const filteredHotspots = (hotspots || []).filter((h) => {
     if (!h) return false;
-    if (
-      selectedState !== "ALL" &&
-      (h.state || "").toLowerCase() !== selectedState.toLowerCase()
-    )
-      return false;
+    if (!isMatchingState(h, selectedState)) return false;
     if (selectedTier !== "ALL") {
       const tier =
         h.alert_tier ||
@@ -38,15 +156,17 @@ export default function CommandCenter({
     return true;
   });
 
-  const filteredComplaints = (complaints || []).filter((c) => {
-    if (!c) return false;
-    if (
-      selectedState !== "ALL" &&
-      (c.state || "").toLowerCase() !== selectedState.toLowerCase()
-    )
-      return false;
-    return true;
-  });
+  const filteredComplaints = (complaints || []).filter((c) =>
+    isMatchingState(c, selectedState),
+  );
+
+  const filteredAtms = (atms || []).filter((a) =>
+    isMatchingState(a, selectedState),
+  );
+
+  const filteredPoliceStations = (policeStations || []).filter((p) =>
+    isMatchingState(p, selectedState),
+  );
 
   const totalFraudAmount = filteredComplaints.reduce(
     (sum, c) => sum + (parseFloat(c.fraud_amount) || 0),
@@ -106,13 +226,91 @@ export default function CommandCenter({
             fontSize: "0.72rem",
             color: "var(--text-muted)",
           }}
+        ></div>
+
+        <div
+          className="dash-animate"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0 25px 0 25px",
+          }}
         >
-          <span>
-            <strong style={{ color: "#fff" }}>21</strong> Districts
-          </span>
-          <span>
-            <strong style={{ color: "#fff" }}>47</strong> ATM Clusters
-          </span>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+            }}
+          >
+            <button
+              onClick={handleRefresh}
+              disabled={isSyncing}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "6px 12px",
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: "6px",
+                fontSize: "0.75rem",
+                color: "var(--text-muted)",
+                cursor: isSyncing ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                opacity: isSyncing ? 0.7 : 1,
+              }}
+            >
+              <RefreshCw
+                size={13}
+                color="#3b82f6"
+                className={isSyncing ? "sync-spinning" : ""}
+              />
+
+              <span>
+                Last sync:{" "}
+                <span
+                  style={{
+                    color: "#fff",
+                    fontWeight: 600,
+                  }}
+                >
+                  {isSyncing ? "Syncing..." : timeAgoText}
+                </span>
+              </span>
+            </button>
+
+            <div
+              style={{
+                position: "relative",
+              }}
+            >
+              <div
+                onClick={() => setShowDatePicker(!showDatePicker)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "6px 12px",
+                  background: "rgba(255,255,255,0.02)",
+                  border: showDatePicker
+                    ? "1px solid #3b82f6"
+                    : "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: "6px",
+                  fontSize: "0.75rem",
+                  color: "#e2e8f0",
+                  cursor: "pointer",
+                }}
+              >
+                <Calendar size={13} color="var(--text-muted)" />
+
+                <span>
+                  {formatDisplayDate(startDate)} - {formatDisplayDate(endDate)}
+                </span>
+              </div>{" "}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -180,10 +378,11 @@ export default function CommandCenter({
             }}
           >
             <MapView
+              selectedState={selectedState}
               complaints={filteredComplaints}
               hotspots={filteredHotspots}
-              atms={atms}
-              policeStations={policeStations}
+              atms={filteredAtms}
+              policeStations={filteredPoliceStations}
             />
           </div>
         </div>

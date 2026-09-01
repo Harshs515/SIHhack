@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import React, { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { MapPin, Layers, Filter, Shield, Clock, AlertTriangle, Crosshair, CheckSquare, Square } from 'lucide-react';
 
@@ -30,6 +30,75 @@ const targetAtmIcon = L.divIcon({
   iconSize: [22, 22],
   iconAnchor: [11, 11]
 });
+
+const STATE_CENTERS = {
+  ALL: { center: [22.5937, 78.9629], zoom: 5 },
+  Delhi: { center: [28.6139, 77.2090], zoom: 11 },
+  Maharashtra: { center: [19.0760, 72.8777], zoom: 10 },
+  Karnataka: { center: [12.9716, 77.5946], zoom: 10 },
+  Telangana: { center: [17.3850, 78.4867], zoom: 10 },
+  Gujarat: { center: [23.0225, 72.5714], zoom: 10 },
+};
+
+function MapCenterController({
+  selectedState,
+  validComplaints,
+  validHotspots,
+  validAtms,
+  validPoliceStations,
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+
+    const allPoints = [];
+    (validHotspots || []).forEach((h) => {
+      const lat = parseFloat(h.center_latitude);
+      const lng = parseFloat(h.center_longitude);
+      if (!isNaN(lat) && !isNaN(lng)) allPoints.push([lat, lng]);
+    });
+    (validComplaints || []).forEach((c) => {
+      const lat = parseFloat(c.latitude);
+      const lng = parseFloat(c.longitude);
+      if (!isNaN(lat) && !isNaN(lng)) allPoints.push([lat, lng]);
+    });
+    (validAtms || []).forEach((a) => {
+      const lat = parseFloat(a.latitude);
+      const lng = parseFloat(a.longitude);
+      if (!isNaN(lat) && !isNaN(lng)) allPoints.push([lat, lng]);
+    });
+    (validPoliceStations || []).forEach((p) => {
+      const lat = parseFloat(p.latitude);
+      const lng = parseFloat(p.longitude);
+      if (!isNaN(lat) && !isNaN(lng)) allPoints.push([lat, lng]);
+    });
+
+    if (selectedState && selectedState !== "ALL" && allPoints.length > 0) {
+      try {
+        const bounds = L.latLngBounds(allPoints);
+        if (bounds.isValid()) {
+          map.flyToBounds(bounds, { padding: [40, 40], maxZoom: 12, duration: 1.2 });
+          return;
+        }
+      } catch (e) {
+        console.error("Error setting map bounds", e);
+      }
+    }
+
+    const stateConfig = STATE_CENTERS[selectedState] || STATE_CENTERS.ALL;
+    map.flyTo(stateConfig.center, stateConfig.zoom, { duration: 1.2 });
+  }, [
+    map,
+    selectedState,
+    validComplaints,
+    validHotspots,
+    validAtms,
+    validPoliceStations,
+  ]);
+
+  return null;
+}
 
 export default function GisHeatmapPage({ complaints = [], hotspots = [], atms = [], policeStations = [] }) {
   const [selectedState, setSelectedState] = useState('ALL');
@@ -282,9 +351,16 @@ export default function GisHeatmapPage({ complaints = [], hotspots = [], atms = 
       {/* Right Map Canvas */}
       <div className="glass-panel" style={{ padding: '6px', height: '100%', position: 'relative', overflow: 'hidden' }}>
         <MapContainer center={[28.6139, 77.2090]} zoom={11} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
+          <MapCenterController
+            selectedState={selectedState}
+            validComplaints={filteredComplaints}
+            validHotspots={filteredHotspots}
+            validAtms={filteredAtms}
+            validPoliceStations={filteredPolice}
+          />
           <TileLayer
-            attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
           {/* Complaints */}

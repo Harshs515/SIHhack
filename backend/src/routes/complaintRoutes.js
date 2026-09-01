@@ -1,61 +1,81 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+const { supabase, parseWKBPoint } = require('../supabase');
 
-// GET /api/complaints - Fetch all active cybercrime complaints
+// GET /api/complaints - Fetch all active cybercrime complaints from Supabase
 router.get('/', async (req, res) => {
   try {
-    const query = `
-      SELECT 
-        id, acknowledgement_no, victim_name, victim_contact, 
-        fraud_category, fraud_amount, incident_timestamp, 
-        mule_bank_name, mule_account_no, victim_address, 
-        ST_Y(geom::geometry) AS latitude, 
-        ST_X(geom::geometry) AS longitude, 
-        status,
-        ST_AsGeoJSON(geom::geometry)::json AS geometry
-      FROM cybercrime_complaints
-      ORDER BY incident_timestamp DESC;
-    `;
-    const result = await db.query(query);
-    res.json({ success: true, count: result.rowCount, data: result.rows });
+    const { data, error } = await supabase
+      .from('cybercrime_complaints')
+      .select('*')
+      .order('incident_timestamp', { ascending: false });
+
+    if (error) throw error;
+
+    const complaints = (data || []).map((c) => {
+      const coords = parseWKBPoint(c.geom);
+      return {
+        ...c,
+        latitude: coords.latitude || c.latitude || 19.076,
+        longitude: coords.longitude || c.longitude || 72.877,
+      };
+    });
+
+    res.json({ success: true, count: complaints.length, data: complaints });
   } catch (error) {
-    console.error('Error fetching complaints:', error);
+    console.error('Error fetching complaints from Supabase:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// POST /api/complaints - Report new cybercrime complaint
+// POST /api/complaints - Report new cybercrime complaint to Supabase
 router.post('/', async (req, res) => {
   const {
-    acknowledgement_no, victim_name, victim_contact,
-    fraud_category, fraud_amount, incident_timestamp,
-    mule_bank_name, mule_account_no, victim_address,
-    latitude, longitude
+    acknowledgement_no,
+    victim_name,
+    victim_contact,
+    fraud_category,
+    fraud_amount,
+    incident_timestamp,
+    mule_bank_name,
+    mule_account_no,
+    victim_address,
+    latitude,
+    longitude,
   } = req.body;
 
   try {
-    const query = `
-      INSERT INTO cybercrime_complaints (
-        acknowledgement_no, victim_name, victim_contact,
-        fraud_category, fraud_amount, incident_timestamp,
-        mule_bank_name, mule_account_no, victim_address,
-        geom
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9,
-        ST_GeographyFromText('POINT(' || $11 || ' ' || $10 || ')')
-      ) RETURNING *, ST_Y(geom::geometry) AS latitude, ST_X(geom::geometry) AS longitude;
-    `;
-    const values = [
-      acknowledgement_no, victim_name, victim_contact,
-      fraud_category, fraud_amount, incident_timestamp || new Date(),
-      mule_bank_name, mule_account_no, victim_address,
-      latitude, longitude
-    ];
-    const result = await db.query(query, values);
-    res.status(201).json({ success: true, data: result.rows[0] });
+    const { data, error } = await supabase
+      .from('cybercrime_complaints')
+      .insert([
+        {
+          acknowledgement_no: acknowledgement_no || `ACK-${Date.now()}`,
+          victim_name,
+          victim_contact,
+          fraud_category: fraud_category || 'Cyber Fraud',
+          fraud_amount: parseFloat(fraud_amount) || 0,
+          incident_timestamp: incident_timestamp || new Date().toISOString(),
+          mule_bank_name,
+          mule_account_no,
+          victim_address,
+          status: 'ACTIVE',
+        },
+      ])
+      .select();
+
+    if (error) throw error;
+
+    const inserted = data[0];
+    res.status(201).json({
+      success: true,
+      data: {
+        ...inserted,
+        latitude: parseFloat(latitude) || 19.076,
+        longitude: parseFloat(longitude) || 72.877,
+      },
+    });
   } catch (error) {
-    console.error('Error creating complaint:', error);
+    console.error('Error creating complaint in Supabase:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

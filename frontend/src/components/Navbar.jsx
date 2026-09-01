@@ -105,7 +105,7 @@ export default function Navbar({
           <span
             className="shimmer-text"
             style={{
-              fontSize: "0.95rem",
+              fontSize: "2rem",
               fontWeight: 900,
               fontFamily: "var(--font-display)",
               letterSpacing: "-0.01em",

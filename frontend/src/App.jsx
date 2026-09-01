@@ -26,14 +26,22 @@ import {
   MOCK_POLICE_STATIONS,
 } from "./data/mockData";
 
+// Supabase Direct Services
+import {
+  fetchSupabaseComplaints,
+  fetchSupabaseHotspots,
+  fetchSupabaseAtms,
+  fetchSupabasePoliceStations,
+} from "./services/supabase";
+
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
 export default function App() {
-  const [complaints, setComplaints] = useState(MOCK_COMPLAINTS);
-  const [hotspots, setHotspots] = useState(MOCK_HOTSPOTS);
-  const [atms, setAtms] = useState(MOCK_ATMS);
-  const [policeStations, setPoliceStations] = useState(MOCK_POLICE_STATIONS);
+  const [complaints, setComplaints] = useState([]);
+  const [hotspots, setHotspots] = useState([]);
+  const [atms, setAtms] = useState([]);
+  const [policeStations, setPoliceStations] = useState([]);
   const [isRunningML, setIsRunningML] = useState(false);
   const [mlStatus, setMlStatus] = useState("ACTIVE");
   const [theme, setTheme] = useState("dark");
@@ -46,7 +54,6 @@ export default function App() {
     });
   };
 
-  // Fetch real data from backend when available with seamless fallback to mock data
   const fetchData = async () => {
     try {
       const [compRes, hotRes, atmRes, psRes] = await Promise.all([
@@ -63,7 +70,8 @@ export default function App() {
       }
       if (hotRes.ok) {
         const hotData = await hotRes.json();
-        if (hotData.data && hotData.data.length > 0) setHotspots(hotData.data);
+        if (hotData.data && hotData.data.length > 0)
+          setHotspots(hotData.data);
       }
       if (atmRes.ok) {
         const atmData = await atmRes.json();
@@ -75,13 +83,13 @@ export default function App() {
           setPoliceStations(psData.data);
       }
     } catch (err) {
-      // Backend not yet running or offline; loaded mock datasets seamlessly
+      console.error("Error loading data from API:", err);
     }
   };
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 20000);
+    const interval = setInterval(fetchData, 15000);
     return () => clearInterval(interval);
   }, []);
 

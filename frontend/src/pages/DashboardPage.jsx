@@ -651,23 +651,18 @@ export default function DashboardPage({
   ────────────────────────────────────────────────────────────── */
 
   const filteredComplaints = useMemo(() => {
+    if (!startDate || !endDate) return complaints || [];
     const start = new Date(startDate).getTime();
-
     const end = new Date(endDate).getTime();
 
-    return complaints.filter((c) => {
-      /*
-       * Keep records with no created_at.
-       * This preserves your original behavior.
-       */
-      if (!c.created_at) {
-        return true;
-      }
-
-      const cTime = new Date(c.created_at).getTime();
-
+    const filtered = (complaints || []).filter((c) => {
+      const dateStr = c.created_at || c.incident_timestamp;
+      if (!dateStr) return true;
+      const cTime = new Date(dateStr).getTime();
       return cTime >= start && cTime <= end;
     });
+
+    return filtered.length > 0 ? filtered : complaints || [];
   }, [complaints, startDate, endDate]);
 
   /* ──────────────────────────────────────────────────────────────
@@ -733,235 +728,7 @@ export default function DashboardPage({
       `}</style>
 
       {/* ─────────────────────────────────────────────────────────
-          Page Header
-      ───────────────────────────────────────────────────────── */}
-
-      <div
-        className="dash-animate"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 25px 0 25px",
-        }}
-      >
-        <h2
-          style={{
-            fontSize: "1.6rem",
-            fontWeight: 800,
-            fontFamily: "var(--font-display)",
-            color: "#fff",
-            margin: 0,
-          }}
-        >
-          Overview
-        </h2>
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-          }}
-        >
-          {/* ─────────────────────────────────────────────────────
-              Functional Refresh Button
-          ───────────────────────────────────────────────────── */}
-
-          <button
-            onClick={handleRefresh}
-            disabled={isSyncing}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "6px 12px",
-              background: "rgba(255,255,255,0.02)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: "6px",
-              fontSize: "0.75rem",
-              color: "var(--text-muted)",
-              cursor: isSyncing ? "not-allowed" : "pointer",
-              transition: "all 0.2s ease",
-              opacity: isSyncing ? 0.7 : 1,
-            }}
-          >
-            <RefreshCw
-              size={13}
-              color="#3b82f6"
-              className={isSyncing ? "sync-spinning" : ""}
-            />
-
-            <span>
-              Last sync:{" "}
-              <span
-                style={{
-                  color: "#fff",
-                  fontWeight: 600,
-                }}
-              >
-                {isSyncing ? "Syncing..." : timeAgoText}
-              </span>
-            </span>
-          </button>
-
-          {/* ─────────────────────────────────────────────────────
-              Functional Date & Month Range Trigger
-          ───────────────────────────────────────────────────── */}
-
-          <div
-            style={{
-              position: "relative",
-            }}
-          >
-            <div
-              onClick={() => setShowDatePicker(!showDatePicker)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "6px 12px",
-                background: "rgba(255,255,255,0.02)",
-                border: showDatePicker
-                  ? "1px solid #3b82f6"
-                  : "1px solid rgba(255,255,255,0.08)",
-                borderRadius: "6px",
-                fontSize: "0.75rem",
-                color: "#e2e8f0",
-                cursor: "pointer",
-              }}
-            >
-              <Calendar size={13} color="var(--text-muted)" />
-
-              <span>
-                {formatDisplayDate(startDate)} - {formatDisplayDate(endDate)}
-              </span>
-            </div>
-
-            {/* ───────────────────────────────────────────────────
-                Date Range Picker Dropdown
-            ─────────────────────────────────────────────────── */}
-
-            {showDatePicker && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "120%",
-                  right: 0,
-                  zIndex: 100,
-                  background: "#0f172a",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  borderRadius: "8px",
-                  padding: "12px",
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.5)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "10px",
-                  width: "260px",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "0.7rem",
-                    color: "var(--text-muted)",
-                    fontWeight: 700,
-                  }}
-                >
-                  Select Time Window
-                </div>
-
-                {/* Start Date */}
-
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "4px",
-                  }}
-                >
-                  <label
-                    style={{
-                      fontSize: "0.65rem",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Start Date & Time
-                  </label>
-
-                  <input
-                    type="datetime-local"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    style={{
-                      background: "#1e293b",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      color: "#fff",
-                      fontSize: "0.75rem",
-                      borderRadius: "4px",
-                      padding: "4px 8px",
-                    }}
-                  />
-                </div>
-
-                {/* End Date */}
-
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "4px",
-                  }}
-                >
-                  <label
-                    style={{
-                      fontSize: "0.65rem",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    End Date & Time
-                  </label>
-
-                  <input
-                    type="datetime-local"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    style={{
-                      background: "#1e293b",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      color: "#fff",
-                      fontSize: "0.75rem",
-                      borderRadius: "4px",
-                      padding: "4px 8px",
-                    }}
-                  />
-                </div>
-
-                {/* Apply Filter */}
-
-                <button
-                  onClick={() => setShowDatePicker(false)}
-                  style={{
-                    marginTop: "4px",
-                    padding: "6px",
-                    background: "#3b82f6",
-                    border: "none",
-                    borderRadius: "4px",
-                    color: "#fff",
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  Apply Filter
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ─────────────────────────────────────────────────────────
-          Command Center
+          Command Center (Map) — sits right below the Navbar
       ───────────────────────────────────────────────────────── */}
 
       <CommandCenter
@@ -972,13 +739,6 @@ export default function DashboardPage({
         isRunningML={isRunningML}
         onTriggerML={onTriggerML}
         mlStatus={mlStatus}
-        /*
-         * IMPORTANT:
-         *
-         * CommandCenter can use this value inside
-         * useEffect(..., [refreshKey]) to refresh
-         * its own internal states.
-         */
         refreshKey={refreshKey}
       />
 

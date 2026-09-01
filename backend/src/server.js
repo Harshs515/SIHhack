@@ -22,5 +22,5 @@ app.get('/api/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Node.js API Backend running on port ${PORT}`);
+  console.log(`Node.js Supabase API Backend running on port ${PORT}`);
 });
