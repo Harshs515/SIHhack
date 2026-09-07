@@ -4,13 +4,11 @@ import {
   Shield,
   LayoutDashboard,
   MapPin,
-  Cpu,
   GitFork,
   ShieldAlert,
   BellRing,
   FileSpreadsheet,
   BarChart3,
-  Network,
   Sun,
   Moon,
 } from "lucide-react";
@@ -19,13 +17,11 @@ const NAV_MODULES = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   // { path: "/command-center", label: "Command Center", icon: Shield },
   { path: "/gis-heatmap", label: "GIS Heatmap", icon: MapPin },
-  { path: "/predictive-analytics", label: "Predictive AI", icon: Cpu },
   { path: "/mule-graph", label: "Mule Graph", icon: GitFork },
   { path: "/lea-interface", label: "LEA Dispatch", icon: ShieldAlert },
   { path: "/alerts-center", label: "Alerts", icon: BellRing },
   { path: "/ncrp-complaints", label: "NCRP / 1930", icon: FileSpreadsheet },
   { path: "/analytics-reports", label: "Analytics", icon: BarChart3 },
-  { path: "/pipeline-topology", label: "Pipeline", icon: Network },
 ];
 
 export default function Navbar({

@@ -30,17 +30,6 @@ const KNOWLEDGE_BASE = [
 You can adjust the buffer radius slider between 500 meters to 3 kilometers and apply time window filters to see where cashouts are most likely to occur.`
   },
   {
-    keywords: ['ai', 'predict', 'ml', 'xgboost', 'shap', 'model', 'accuracy', 'xai', 'reinforcement', 'feedback'],
-    route: '/predictive-analytics',
-    routeLabel: 'Open Predictive AI Engine',
-    reply: `The Predictive AI Engine uses an ensemble machine learning approach:
-
-1. XGBoost Tabular Classifier: Achieves 74.2% top-3 district accuracy using 38 distinct cybercrime features.
-2. Spatial DBSCAN: Groups nearby suspicious withdrawal patterns into 47 distinct risk clusters.
-3. SHAP Explainable AI: Provides a transparent breakdown of why an alert was triggered, showing factors like complaint velocity and fraud category.
-4. Officer Feedback Loop: Allows field officers to log confirmed interceptions or false alarms to continually adjust risk weights.`
-  },
-  {
     keywords: ['mule', 'graph', 'neo4j', 'chain', 'hop', 'freeze', 'bank', 'account', 'transfer'],
     route: '/mule-graph',
     routeLabel: 'Open Mule Chain Graph',
@@ -90,19 +79,6 @@ You can adjust the buffer radius slider between 500 meters to 3 kilometers and a
 • Official Dossiers: Lets you export official restricted intelligence dossiers in PDF format for court and law enforcement use.`
   },
   {
-    keywords: ['pipeline', 'architecture', 'kafka', 'spark', 'flow', 'topology', 'how it works'],
-    route: '/pipeline-topology',
-    routeLabel: 'Open Pipeline Topology',
-    reply: `The system operates on a 6-stage reactive streaming pipeline:
-
-1. Complaint Intake: Citizen complaints stream into Apache Kafka topics.
-2. Stream NLP: Apache Spark extracts entities and calculates time deltas.
-3. Graph Traversal: Neo4j maps out multi-hop account hops.
-4. AI Prediction: XGBoost and DBSCAN forecast the exact ATM cluster.
-5. Real-Time Alerts: Redis and FCM push notifications to officers.
-6. Field Action: Police PCR units intercept the cash withdrawal within the golden hour.`
-  },
-  {
     keywords: ['help', 'guide', 'start', 'how to use', 'features', 'tour'],
     route: '/',
     routeLabel: 'Go to Command Center',
@@ -110,7 +86,6 @@ You can adjust the buffer radius slider between 500 meters to 3 kilometers and a
 
 • Command Center: Your central overview showing the live surveillance map and active alerts.
 • GIS Risk Heatmap: View all 47 ATM clusters, candidate banks, and jurisdictional police stations.
-• Predictive AI Engine: Inspect machine learning confidence scores and explainability factors.
 • Mule Chain Graph: Trace how stolen funds travel across multiple accounts.
 • Police Dispatch: Coordinate field patrol teams to intercept cashouts before they happen.`
   }
