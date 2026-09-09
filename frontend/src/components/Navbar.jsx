@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { NavLink, Link } from "react-router-dom";
+import { NavLink, Link, useLocation } from "react-router-dom";
 import {
   Shield,
   LayoutDashboard,
@@ -13,11 +13,14 @@ import {
   Network,
   Sun,
   Moon,
+  ShieldCheck,
+  LogIn,
+  LogOut,
 } from "lucide-react";
 
-const NAV_MODULES = [
+// Officer / Command & Control Nav Modules
+const OFFICER_NAV_MODULES = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  // { path: "/command-center", label: "Command Center", icon: Shield },
   { path: "/gis-heatmap", label: "GIS Heatmap", icon: MapPin },
   { path: "/predictive-analytics", label: "Predictive AI", icon: Cpu },
   { path: "/mule-graph", label: "Mule Graph", icon: GitFork },
@@ -35,7 +38,18 @@ export default function Navbar({
   theme = "dark",
   onToggleTheme,
 }) {
+  const location = useLocation();
   const [time, setTime] = useState("");
+
+  const isAuthPage =
+    location.pathname === "/auth" ||
+    location.pathname === "/login" ||
+    location.pathname === "/";
+
+  const isCitizenPage =
+    location.pathname === "/ncrp-portal" ||
+    location.pathname === "/citizen-portal" ||
+    location.pathname === "/ncrp-simulation";
 
   useEffect(() => {
     const update = () =>
@@ -76,7 +90,7 @@ export default function Navbar({
       >
         {/* Logo */}
         <Link
-          to="/dashboard"
+          to={isAuthPage ? "/auth" : isCitizenPage ? "/ncrp-portal" : "/dashboard"}
           style={{
             textDecoration: "none",
             display: "flex",
@@ -105,7 +119,7 @@ export default function Navbar({
           <span
             className="shimmer-text"
             style={{
-              fontSize: "2rem",
+              fontSize: "0.95rem",
               fontWeight: 900,
               fontFamily: "var(--font-display)",
               letterSpacing: "-0.01em",
@@ -126,31 +140,92 @@ export default function Navbar({
           }}
         />
 
-        {/* Nav pills — scrollable, hides scrollbar */}
+        {/* Navigation Section */}
         <nav
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "1px",
+            gap: "4px",
             flex: 1,
             overflowX: "auto",
             scrollbarWidth: "none",
             msOverflowStyle: "none",
           }}
         >
-          {NAV_MODULES.map(({ path, label, icon: Icon }) => (
-            <NavLink
-              key={path}
-              to={path}
-              end={path === "/dashboard"}
-              className={({ isActive }) =>
-                `nav-pill${isActive ? " active" : ""}`
-              }
-            >
-              <Icon size={13} strokeWidth={1.8} />
-              {label}
-            </NavLink>
-          ))}
+          {/* 1. When on Auth / Landing Page: Show ONLY "Portal Login" */}
+          {isAuthPage && (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <NavLink
+                to="/auth"
+                className={({ isActive }) =>
+                  `nav-pill${isActive ? " active" : ""}`
+                }
+              >
+                <LogIn size={14} strokeWidth={2} />
+                Portal Login / Role Selection
+              </NavLink>
+            </div>
+          )}
+
+          {/* 2. When on Citizen Portal: Show Citizen Navigation */}
+          {isCitizenPage && (
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <NavLink
+                to="/ncrp-portal"
+                className={({ isActive }) =>
+                  `nav-pill${isActive ? " active" : ""}`
+                }
+              >
+                <ShieldCheck size={14} strokeWidth={2} />
+                Citizen NCRP Portal
+              </NavLink>
+
+              <NavLink
+                to="/auth"
+                className="nav-pill"
+                style={{ opacity: 0.8 }}
+                title="Switch role or login as Field Officer"
+              >
+                <LogOut size={13} strokeWidth={1.8} />
+                Switch Portal / Login
+              </NavLink>
+            </div>
+          )}
+
+          {/* 3. When Logged in on Field Officer / LEA Pages: Show All Command Modules */}
+          {!isAuthPage && !isCitizenPage && (
+            <>
+              {OFFICER_NAV_MODULES.map(({ path, label, icon: Icon }) => (
+                <NavLink
+                  key={path}
+                  to={path}
+                  end={path === "/dashboard"}
+                  className={({ isActive }) =>
+                    `nav-pill${isActive ? " active" : ""}`
+                  }
+                >
+                  <Icon size={13} strokeWidth={1.8} />
+                  {label}
+                </NavLink>
+              ))}
+
+              <NavLink
+                to="/auth"
+                className="nav-pill"
+                style={{
+                  marginLeft: "6px",
+                  background: "rgba(255, 56, 92, 0.08)",
+                  borderColor: "rgba(255, 56, 92, 0.2)",
+                  color: "#ff7597",
+                }}
+                title="Log out or switch role"
+              >
+                <LogOut size={13} strokeWidth={1.8} />
+                Logout / Switch
+              </NavLink>
+            </>
+          )}
+
           <style>{`nav::-webkit-scrollbar{display:none}`}</style>
         </nav>
 

@@ -1,6 +1,5 @@
 const SUPABASE_URL = "https://odrcqeegkfscjunlpwmg.supabase.co";
-const SUPABASE_KEY =
-  "sb_secret_8s195YdPUTL-ddd4I4z51Q_FUtcp1t1";
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const HEADERS = {
   apikey: SUPABASE_KEY,
