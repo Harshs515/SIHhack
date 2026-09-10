@@ -3,13 +3,11 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
   MapPin,
-  Cpu,
   GitFork,
   ShieldAlert,
   BellRing,
   FileSpreadsheet,
   BarChart3,
-  Network,
   Database,
 } from "lucide-react";
 
@@ -29,14 +27,6 @@ const NAV_ITEMS = [
     badge: "47 Clusters",
     badgeColor: "#ff385c",
     desc: "ATM Risk & Buffer Zones",
-  },
-  {
-    path: "/predictive-analytics",
-    label: "Predictive AI Engine",
-    icon: Cpu,
-    badge: "SHAP XAI",
-    badgeColor: "#a855f7",
-    desc: "XGBoost & ST-DBSCAN ML",
   },
   {
     path: "/mule-graph",
@@ -77,14 +67,6 @@ const NAV_ITEMS = [
     badge: "Dossiers",
     badgeColor: "#3b82f6",
     desc: "MHA Recovery Benchmarks",
-  },
-  {
-    path: "/pipeline-topology",
-    label: "Pipeline Topology",
-    icon: Network,
-    badge: "Real-Time",
-    badgeColor: "#a855f7",
-    desc: "Kafka-Spark-Neo4j Pipeline",
   },
 ];
 
