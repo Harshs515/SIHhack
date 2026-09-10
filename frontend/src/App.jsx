@@ -10,7 +10,6 @@ import AiChatbot from "./components/AiChatbot";
 import DashboardPage from "./pages/DashboardPage";
 import CommandCenter from "./pages/CommandCenter";
 import GisHeatmapPage from "./pages/GisHeatmapPage";
-import PredictiveAnalyticsPage from "./pages/PredictiveAnalyticsPage";
 import MuleGraphPage from "./pages/MuleGraphPage";
 import LeaInterfacePage from "./pages/LeaInterfacePage";
 import AlertsCenterPage from "./pages/AlertsCenterPage";
@@ -195,27 +194,16 @@ export default function App() {
                 }
               />
 
-              {/* 3. AI/ML Predictive Hub */}
-              <Route
-                path="/predictive-analytics"
-                element={
-                  <PredictiveAnalyticsPage
-                    onTriggerML={handleTriggerML}
-                    isRunningML={isRunningML}
-                  />
-                }
-              />
-
-              {/* 4. Mule Chain Graph & Neo4j Explorer */}
+              {/* 3. Mule Chain Graph & Neo4j Explorer */}
               <Route path="/mule-graph" element={<MuleGraphPage />} />
 
-              {/* 5. Law Enforcement Agency (LEA) Tactical Dispatch */}
+              {/* 4. Law Enforcement Agency (LEA) Tactical Dispatch */}
               <Route path="/lea-interface" element={<LeaInterfacePage />} />
 
-              {/* 6. Real-Time Alerts & Notification Center */}
+              {/* 5. Real-Time Alerts & Notification Center */}
               <Route path="/alerts-center" element={<AlertsCenterPage />} />
 
-              {/* 7. NCRP & 1930 Cybercrime Complaint Ingestion Suite */}
+              {/* 6. NCRP & 1930 Cybercrime Complaint Ingestion Suite */}
               <Route
                 path="/ncrp-complaints"
                 element={

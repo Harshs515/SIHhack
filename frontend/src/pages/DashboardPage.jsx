@@ -3,13 +3,11 @@ import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   MapPin,
-  Cpu,
   GitFork,
   ShieldAlert,
   BellRing,
   FileSpreadsheet,
   BarChart3,
-  Network,
   Shield,
   TrendingUp,
   AlertTriangle,
@@ -57,15 +55,6 @@ const MODULES = [
     desc: "ATM risk clusters",
   },
   {
-    path: "/predictive-analytics",
-    label: "Predictive AI",
-    icon: Cpu,
-    accentColor: "#a855f7",
-    badge: "XGBoost",
-    badgeColor: "purple",
-    desc: "ML forecasting engine",
-  },
-  {
     path: "/mule-graph",
     label: "Mule Graph",
     icon: GitFork,
@@ -109,15 +98,6 @@ const MODULES = [
     badge: "Reports",
     badgeColor: "blue",
     desc: "MHA benchmarks",
-  },
-  {
-    path: "/pipeline-topology",
-    label: "Pipeline",
-    icon: Network,
-    accentColor: "#a855f7",
-    badge: "Real-Time",
-    badgeColor: "purple",
-    desc: "Kafka → Neo4j",
   },
 ];
 
