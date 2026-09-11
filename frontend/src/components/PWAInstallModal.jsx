@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import AppLogo from './AppLogo';
 
 // ────────────────────────────────────────────────────────────
 // Tab data
@@ -269,13 +270,7 @@ export default function PWAInstallModal({ isOpen, onClose, defaultTab }) {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div style={{
-              width: '48px', height: '48px', borderRadius: '14px',
-              background: 'linear-gradient(135deg, #00e5ff 0%, #3a7bd5 100%)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '1.5rem', flexShrink: 0,
-              boxShadow: '0 0 24px rgba(0,229,255,0.4)',
-            }}>🛡️</div>
+            <AppLogo size={48} radius={14} />
             <div>
               <h2 style={{ margin: 0, color: '#fff', fontSize: '1.1rem', fontWeight: 800, fontFamily: 'var(--font-display)' }}>
                 Install TRINETRA

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import {
-  Shield,
   LayoutDashboard,
   MapPin,
   GitFork,
@@ -18,6 +17,8 @@ import {
 } from "lucide-react";
 import { usePWAInstall } from "../hooks/usePWAInstall";
 import PWAInstallModal from "./PWAInstallModal";
+import AppLogo from "./AppLogo";
+import { getSession, clearSession } from "../utils/session";
 
 // Officer / Command & Control Nav Modules
 const OFFICER_NAV_MODULES = [
@@ -38,6 +39,7 @@ export default function Navbar({
   onToggleTheme,
 }) {
   const location = useLocation();
+  const session = getSession();
   const [time, setTime] = useState("");
   const [installModalOpen, setInstallModalOpen] = useState(false);
   const [installPulse, setInstallPulse] = useState(false);
@@ -114,22 +116,7 @@ export default function Navbar({
               marginRight: "20px",
             }}
           >
-            <div
-              style={{
-                width: "32px",
-                height: "32px",
-                borderRadius: "8px",
-                background: "linear-gradient(135deg, #00e5ff 0%, #3a7bd5 100%)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#040914",
-                boxShadow: "0 0 14px rgba(0,229,255,0.4)",
-                flexShrink: 0,
-              }}
-            >
-              <Shield size={17} strokeWidth={2.5} />
-            </div>
+            <AppLogo size={32} radius={8} />
             <span
               className="shimmer-text"
               style={{
@@ -199,6 +186,7 @@ export default function Navbar({
                 className="nav-pill"
                 style={{ opacity: 0.8 }}
                 title="Switch role or login as Field Officer"
+                onClick={clearSession}
               >
                 <LogOut size={13} strokeWidth={1.8} />
                 Switch Portal / Login
@@ -233,6 +221,7 @@ export default function Navbar({
                   color: "#ff7597",
                 }}
                 title="Log out or switch role"
+                onClick={clearSession}
               >
                 <LogOut size={13} strokeWidth={1.8} />
                 Logout / Switch
@@ -253,6 +242,22 @@ export default function Navbar({
               gap: "10px",
             }}
           >
+            {session?.profile?.name && !isAuthPage && (
+              <span
+                title={session.profile.badge || session.profile.email || ""}
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                  color: "var(--text-secondary)",
+                  whiteSpace: "nowrap",
+                  maxWidth: "180px",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {session.profile.name}
+              </span>
+            )}
             {/* ── PWA Install Button ── */}
             {showInstallBtn && (
               <div style={{ position: "relative" }}>
