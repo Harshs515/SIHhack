@@ -12,6 +12,7 @@ import {
   Sun,
   Moon,
   Download,
+  Siren,
 } from "lucide-react";
 import { usePWAInstall } from "../hooks/usePWAInstall";
 import PWAInstallModal from "./PWAInstallModal";

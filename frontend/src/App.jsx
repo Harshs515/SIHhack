@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 
 // Global Navigation & Error Boundary Components
 import Navbar from "./components/Navbar";
@@ -15,6 +15,7 @@ import LeaInterfacePage from "./pages/LeaInterfacePage";
 import AlertsCenterPage from "./pages/AlertsCenterPage";
 import NcrpComplaintsPage from "./pages/NcrpComplaintsPage";
 import AnalyticsReportsPage from "./pages/AnalyticsReportsPage";
+import FieldOfficerPortal from "./pages/FieldOfficerPortal";
 
 // Domain Intelligence Mock Data
 import {
@@ -34,6 +35,115 @@ import {
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+
+function AppShell({
+  isRunningML,
+  handleTriggerML,
+  theme,
+  toggleTheme,
+  hotspots,
+  complaints,
+  atms,
+  policeStations,
+  mlStatus,
+  handleAddComplaint,
+}) {
+  const location = useLocation();
+  const isFieldOfficer = location.pathname.startsWith("/field-officer");
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+      {/* Hide the global Navbar on Field Officer portal */}
+      {!isFieldOfficer && (
+        <Navbar
+          isRunningML={isRunningML}
+          onTriggerML={handleTriggerML}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          activeAlertsCount={
+            (hotspots || []).filter(
+              (h) => h.alert_tier === "P1" || h.atm_risk_tier === "CRITICAL",
+            ).length || 2
+          }
+        />
+      )}
+
+      {/* Page content — full width */}
+      <main style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+        <ErrorBoundary>
+          <Routes>
+            {/* Default → Dashboard */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+            {/* 0. Overview Dashboard */}
+            <Route
+              path="/dashboard"
+              element={
+                <DashboardPage
+                  complaints={complaints}
+                  hotspots={hotspots}
+                  atms={atms}
+                  policeStations={policeStations}
+                  isRunningML={isRunningML}
+                  onTriggerML={handleTriggerML}
+                  mlStatus={mlStatus}
+                />
+              }
+            />
+
+            {/* 2. Fullscreen GIS Risk Heatmap */}
+            <Route
+              path="/gis-heatmap"
+              element={
+                <GisHeatmapPage
+                  complaints={complaints}
+                  hotspots={hotspots}
+                  atms={atms}
+                  policeStations={policeStations}
+                />
+              }
+            />
+
+            {/* 3. Mule Chain Graph & Neo4j Explorer */}
+            <Route path="/mule-graph" element={<MuleGraphPage />} />
+
+            {/* 4. Law Enforcement Agency (LEA) Tactical Dispatch */}
+            <Route path="/lea-interface" element={<LeaInterfacePage />} />
+
+            {/* 5. Real-Time Alerts & Notification Center */}
+            <Route path="/alerts-center" element={<AlertsCenterPage />} />
+
+            {/* 6. NCRP & 1930 Cybercrime Complaint Ingestion Suite */}
+            <Route
+              path="/ncrp-complaints"
+              element={
+                <NcrpComplaintsPage
+                  complaints={complaints}
+                  onAddComplaint={handleAddComplaint}
+                />
+              }
+            />
+
+            {/* 7. Executive Analytics & I4C Dossier Reports */}
+            <Route
+              path="/analytics-reports"
+              element={<AnalyticsReportsPage />}
+            />
+
+            {/* 8. Field Officer Portal */}
+            <Route path="/field-officer" element={<FieldOfficerPortal />} />
+
+            {/* Fallback redirect */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </ErrorBoundary>
+      </main>
+
+      {/* Hide Chatbot on Field Officer Portal for clean distraction-free field view */}
+      {!isFieldOfficer && <AiChatbot />}
+    </div>
+  );
+}
 
 export default function App() {
   const [complaints, setComplaints] = useState([]);
@@ -81,19 +191,17 @@ export default function App() {
           setPoliceStations(psData.data);
       }
     } catch (err) {
-      console.error("Error loading data from API:", err);
+      console.warn("Using offline mock intelligence cache");
+      setComplaints(MOCK_COMPLAINTS);
+      setHotspots(MOCK_HOTSPOTS);
+      setAtms(MOCK_ATMS);
+      setPoliceStations(MOCK_POLICE_STATIONS);
     }
   };
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 15000);
-    return () => clearInterval(interval);
   }, []);
-
-  // =========================
-  // ML TRIGGER
-  // =========================
 
   const handleTriggerML = async () => {
     setIsRunningML(true);
@@ -106,7 +214,6 @@ export default function App() {
 
       await fetchData();
     } catch (e) {
-      // Offline fallback simulation
       setTimeout(() => {
         setIsRunningML(false);
         setMlStatus("ACTIVE");
@@ -123,109 +230,18 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div
-        style={{ display: "flex", flexDirection: "column", height: "100vh" }}
-      >
-        {/* Fade Navbar — fuses seamlessly with the background */}
-        <Navbar
-          isRunningML={isRunningML}
-          onTriggerML={handleTriggerML}
-          theme={theme}
-          onToggleTheme={toggleTheme}
-          activeAlertsCount={
-            (hotspots || []).filter(
-              (h) => h.alert_tier === "P1" || h.atm_risk_tier === "CRITICAL",
-            ).length || 2
-          }
-        />
-
-        {/* Page content — full width, no sidebar */}
-        <main style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-          <ErrorBoundary>
-            <Routes>
-              {/* Default → Dashboard */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-
-              {/* 0. Overview Dashboard */}
-              <Route
-                path="/dashboard"
-                element={
-                  <DashboardPage
-                    complaints={complaints}
-                    hotspots={hotspots}
-                    atms={atms}
-                    policeStations={policeStations}
-                    isRunningML={isRunningML}
-                    onTriggerML={handleTriggerML}
-                    mlStatus={mlStatus}
-                  />
-                }
-              />
-
-              {/* 1. Master Command & Control Center */}
-              {/* <Route
-                path="/command-center"
-                element={
-                  <CommandCenter
-                    complaints={complaints}
-                    hotspots={hotspots}
-                    atms={atms}
-                    policeStations={policeStations}
-                    isRunningML={isRunningML}
-                    onTriggerML={handleTriggerML}
-                    mlStatus={mlStatus}
-                  />
-                }
-              /> */}
-
-              {/* 2. Fullscreen GIS Risk Heatmap */}
-              <Route
-                path="/gis-heatmap"
-                element={
-                  <GisHeatmapPage
-                    complaints={complaints}
-                    hotspots={hotspots}
-                    atms={atms}
-                    policeStations={policeStations}
-                  />
-                }
-              />
-
-              {/* 3. Mule Chain Graph & Neo4j Explorer */}
-              <Route path="/mule-graph" element={<MuleGraphPage />} />
-
-              {/* 4. Law Enforcement Agency (LEA) Tactical Dispatch */}
-              <Route path="/lea-interface" element={<LeaInterfacePage />} />
-
-              {/* 5. Real-Time Alerts & Notification Center */}
-              <Route path="/alerts-center" element={<AlertsCenterPage />} />
-
-              {/* 6. NCRP & 1930 Cybercrime Complaint Ingestion Suite */}
-              <Route
-                path="/ncrp-complaints"
-                element={
-                  <NcrpComplaintsPage
-                    complaints={complaints}
-                    onAddComplaint={handleAddComplaint}
-                  />
-                }
-              />
-
-              {/* 7. Executive Analytics & I4C Dossier Reports */}
-              <Route
-                path="/analytics-reports"
-                element={<AnalyticsReportsPage />}
-              />
-
-              {/* Fallback redirect */}
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Routes>
-          </ErrorBoundary>
-        </main>
-
-        {/* Global AI Voice & Chat Copilot */}
-        <AiChatbot />
-      </div>
+      <AppShell
+        isRunningML={isRunningML}
+        handleTriggerML={handleTriggerML}
+        theme={theme}
+        toggleTheme={toggleTheme}
+        hotspots={hotspots}
+        complaints={complaints}
+        atms={atms}
+        policeStations={policeStations}
+        mlStatus={mlStatus}
+        handleAddComplaint={handleAddComplaint}
+      />
     </BrowserRouter>
   );
 }
