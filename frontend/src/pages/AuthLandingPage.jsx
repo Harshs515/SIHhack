@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Shield,
   ShieldCheck,
-  ShieldAlert,
   User,
   BadgeCheck,
   PhoneCall,
@@ -11,62 +9,164 @@ import {
   ArrowRight,
   Zap,
   KeyRound,
-  Building2,
-  FileText,
-  MapPin,
   Cpu,
-  CheckCircle2,
   Smartphone,
   Radio,
   Navigation,
-  Eye
+  Mail,
+  AlertCircle
 } from 'lucide-react';
+import AppLogo from '../components/AppLogo';
+import {
+  FIELD_OFFICERS,
+  INVESTIGATORS,
+  findPersonnelByBadge,
+  verifyPersonnelPin
+} from '../data/personnel';
+import { saveSession } from '../utils/session';
+
+const inputStyle = {
+  width: '100%',
+  fontSize: '0.86rem',
+  padding: '9px 12px',
+  borderRadius: '8px'
+};
+
+const iconInputStyle = {
+  ...inputStyle,
+  padding: '9px 12px 9px 36px'
+};
 
 export default function AuthLandingPage() {
   const navigate = useNavigate();
 
-  // Active Role Tab: 'citizen' | 'officer' | 'field_officer'
-  const [selectedRole, setSelectedRole] = useState('field_officer');
+  const [selectedRole, setSelectedRole] = useState('citizen');
 
-  // Citizen Login State
+  const [citizenFirstName, setCitizenFirstName] = useState('');
+  const [citizenLastName, setCitizenLastName] = useState('');
+  const [citizenEmail, setCitizenEmail] = useState('');
   const [citizenMobile, setCitizenMobile] = useState('');
   const [citizenOtp, setCitizenOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  const [citizenError, setCitizenError] = useState('');
 
-  // C2 Command Officer Login State
-  const [officerBadge, setOfficerBadge] = useState('DL-CYBER-8842');
-  const [officerUnit, setOfficerUnit] = useState('Special Cyber Cell, Delhi');
-  const [officerPin, setOfficerPin] = useState('••••••');
+  const [fieldOfficerId, setFieldOfficerId] = useState('');
+  const [fieldBadge, setFieldBadge] = useState('');
+  const [fieldUnit, setFieldUnit] = useState('');
+  const [fieldPin, setFieldPin] = useState('');
+  const [fieldError, setFieldError] = useState('');
 
-  // Field Officer Login State
-  const [fieldBadge, setFieldBadge] = useState('DL-PATROL-04');
-  const [fieldUnit, setFieldUnit] = useState('Rohini Sector 14 Patrol');
-  const [fieldPin, setFieldPin] = useState('••••••');
+  const [investigatorId, setInvestigatorId] = useState('');
+  const [officerBadge, setOfficerBadge] = useState('');
+  const [officerUnit, setOfficerUnit] = useState('');
+  const [officerPin, setOfficerPin] = useState('');
+  const [officerError, setOfficerError] = useState('');
+
+  const applyOfficerRecord = (person, kind) => {
+    if (kind === 'field') {
+      setFieldOfficerId(person?.id || '');
+      setFieldBadge(person?.badge || '');
+      setFieldUnit(person?.unit || '');
+      setFieldError('');
+      return;
+    }
+    setInvestigatorId(person?.id || '');
+    setOfficerBadge(person?.badge || '');
+    setOfficerUnit(person?.unit || '');
+    setOfficerError('');
+  };
+
+  const handleSelectFieldOfficer = (id) => {
+    const person = FIELD_OFFICERS.find((o) => o.id === id) || null;
+    applyOfficerRecord(person, 'field');
+  };
+
+  const handleSelectInvestigator = (id) => {
+    const person = INVESTIGATORS.find((o) => o.id === id) || null;
+    applyOfficerRecord(person, 'investigator');
+  };
+
+  const handleBadgeLookup = (badge, kind) => {
+    if (kind === 'field') {
+      setFieldBadge(badge);
+      const person = findPersonnelByBadge(FIELD_OFFICERS, badge);
+      if (person) {
+        setFieldOfficerId(person.id);
+        setFieldUnit(person.unit);
+      }
+      return;
+    }
+    setOfficerBadge(badge);
+    const person = findPersonnelByBadge(INVESTIGATORS, badge);
+    if (person) {
+      setInvestigatorId(person.id);
+      setOfficerUnit(person.unit);
+    }
+  };
 
   const handleSendOtp = () => {
+    if (!citizenFirstName.trim() || !citizenLastName.trim() || !citizenEmail.trim() || !citizenMobile.trim()) {
+      setCitizenError('Enter first name, last name, email, and mobile number to continue.');
+      return;
+    }
+    setCitizenError('');
     setOtpSent(true);
-    setCitizenOtp('782910'); // Simulated instant OTP for convenience
+    setCitizenOtp('782910');
   };
 
   const handleCitizenLogin = (e) => {
     if (e) e.preventDefault();
+    if (!citizenFirstName.trim() || !citizenLastName.trim() || !citizenEmail.trim() || !citizenMobile.trim()) {
+      setCitizenError('Enter first name, last name, email, and mobile number to continue.');
+      return;
+    }
+    saveSession({
+      role: 'citizen',
+      profile: {
+        firstName: citizenFirstName.trim(),
+        lastName: citizenLastName.trim(),
+        email: citizenEmail.trim(),
+        mobile: citizenMobile.trim(),
+        name: `${citizenFirstName.trim()} ${citizenLastName.trim()}`
+      }
+    });
     navigate('/ncrp-portal');
   };
 
   const handleOfficerLogin = (e) => {
     if (e) e.preventDefault();
+    const person =
+      INVESTIGATORS.find((o) => o.id === investigatorId) ||
+      findPersonnelByBadge(INVESTIGATORS, officerBadge);
+
+    if (!person) {
+      setOfficerError('Unknown Badge ID. Select a registered investigator.');
+      return;
+    }
+    if (!verifyPersonnelPin(person, officerPin)) {
+      setOfficerError(`Invalid PIN for ${person.name}.`);
+      return;
+    }
+    saveSession({ role: 'investigator', profile: person });
     navigate('/dashboard');
   };
 
   const handleFieldOfficerLogin = (e) => {
     if (e) e.preventDefault();
-    navigate('/field-officer');
-  };
+    const person =
+      FIELD_OFFICERS.find((o) => o.id === fieldOfficerId) ||
+      findPersonnelByBadge(FIELD_OFFICERS, fieldBadge);
 
-  const handleQuickOfficerRole = (badge, unit) => {
-    setOfficerBadge(badge);
-    setOfficerUnit(unit);
-    setOfficerPin('••••••');
+    if (!person) {
+      setFieldError('Unknown Badge ID. Select a registered field officer.');
+      return;
+    }
+    if (!verifyPersonnelPin(person, fieldPin)) {
+      setFieldError(`Invalid PIN for ${person.name}.`);
+      return;
+    }
+    saveSession({ role: 'field_officer', profile: person });
+    navigate('/field-officer');
   };
 
   return (
@@ -81,11 +181,8 @@ export default function AuthLandingPage() {
       margin: '0 auto',
       width: '100%'
     }}>
-      
-      {/* 1. Master Portal Branding Header */}
+
       <div style={{ textAlign: 'center', marginBottom: '28px', maxWidth: '780px' }}>
-        
-        {/* Tricolor Accent Bar */}
         <div style={{
           width: '70px',
           height: '4px',
@@ -95,18 +192,7 @@ export default function AuthLandingPage() {
         }} />
 
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            background: 'linear-gradient(135deg, #00e5ff 0%, #3a7bd5 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#040914'
-          }}>
-            <Shield size={18} strokeWidth={2.5} />
-          </div>
+          <AppLogo size={32} radius={8} />
           <span style={{ fontSize: '1.25rem', fontWeight: 900, color: '#fff', letterSpacing: '0.04em', fontFamily: 'var(--font-display)' }}>
             TRINETRA • UNIFIED AUTHENTICATION GATEWAY
           </span>
@@ -121,7 +207,6 @@ export default function AuthLandingPage() {
         </p>
       </div>
 
-      {/* 2. Triple Role Selection Cards (Citizen vs Command Center vs Field Officer) */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
@@ -130,9 +215,6 @@ export default function AuthLandingPage() {
         maxWidth: '1280px'
       }}>
 
-        {/* ========================================================================= */}
-        {/* CARD 1: CITIZEN ACCESS PORTAL */}
-        {/* ========================================================================= */}
         <div
           onClick={() => setSelectedRole('citizen')}
           className="glass-panel"
@@ -149,7 +231,6 @@ export default function AuthLandingPage() {
             transition: 'all 0.25s ease'
           }}
         >
-          {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{
@@ -184,37 +265,66 @@ export default function AuthLandingPage() {
             Report online fraud, suspect UPI transfers, track complaint FIR status, or verify suspicious callers.
           </p>
 
-          {/* Feature Bullets */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.02)', padding: '10px 12px', borderRadius: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-              <CheckCircle2 size={14} color="#00e676" />
-              <span>Lodge instant cybercrime complaint</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-              <CheckCircle2 size={14} color="#00e676" />
-              <span>Track 1930 bank lien freeze status</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-              <CheckCircle2 size={14} color="#00e676" />
-              <span>Mobile OTP Auth (No password)</span>
-            </div>
-          </div>
-
-          {/* Citizen Login Form */}
           <form onSubmit={handleCitizenLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: 'auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <div>
+                <label style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                  First Name
+                </label>
+                <input
+                  type="text"
+                  value={citizenFirstName}
+                  onChange={(e) => setCitizenFirstName(e.target.value)}
+                  placeholder="Ravi"
+                  className="cyber-input"
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  value={citizenLastName}
+                  onChange={(e) => setCitizenLastName(e.target.value)}
+                  placeholder="Sharma"
+                  className="cyber-input"
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
             <div>
               <label style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
-                Mobile Number or Email
+                Email
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Mail size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '11px' }} />
+                <input
+                  type="email"
+                  value={citizenEmail}
+                  onChange={(e) => setCitizenEmail(e.target.value)}
+                  placeholder="citizen@email.com"
+                  className="cyber-input"
+                  style={iconInputStyle}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                Mobile Number
               </label>
               <div style={{ position: 'relative' }}>
                 <Smartphone size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '11px' }} />
                 <input
-                  type="text"
+                  type="tel"
                   value={citizenMobile}
                   onChange={(e) => setCitizenMobile(e.target.value)}
                   placeholder="+91-98765-43210"
                   className="cyber-input"
-                  style={{ width: '100%', fontSize: '0.86rem', padding: '9px 12px 9px 36px', borderRadius: '8px' }}
+                  style={iconInputStyle}
                 />
               </div>
             </div>
@@ -232,9 +342,16 @@ export default function AuthLandingPage() {
                     onChange={(e) => setCitizenOtp(e.target.value)}
                     placeholder="782910"
                     className="cyber-input"
-                    style={{ width: '100%', fontSize: '0.9rem', fontFamily: 'var(--font-mono)', fontWeight: 700, padding: '9px 12px 9px 36px', borderRadius: '8px', color: '#00e676' }}
+                    style={{ ...iconInputStyle, fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#00e676' }}
                   />
                 </div>
+              </div>
+            )}
+
+            {citizenError && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', color: '#ff7597' }}>
+                <AlertCircle size={13} />
+                {citizenError}
               </div>
             )}
 
@@ -258,30 +375,9 @@ export default function AuthLandingPage() {
                 <ArrowRight size={15} />
               </button>
             )}
-
-            <button
-              type="button"
-              onClick={handleCitizenLogin}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#00e5ff',
-                fontSize: '0.76rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                textAlign: 'center',
-                marginTop: '2px',
-                textDecoration: 'underline'
-              }}
-            >
-              Direct Demo Access &rarr; Citizen Portal
-            </button>
           </form>
         </div>
 
-        {/* ========================================================================= */}
-        {/* CARD 2: FIELD OFFICER PORTAL (NEW ROLE) */}
-        {/* ========================================================================= */}
         <div
           onClick={() => setSelectedRole('field_officer')}
           className="glass-panel"
@@ -298,7 +394,6 @@ export default function AuthLandingPage() {
             transition: 'all 0.25s ease'
           }}
         >
-          {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{
@@ -333,24 +428,26 @@ export default function AuthLandingPage() {
             Mobile PWA for patrol officers. Real-time ATM cash-out interception alerts, victim Golden Window timers, and location dispatch.
           </p>
 
-          {/* Feature Bullets */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.02)', padding: '10px 12px', borderRadius: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-              <CheckCircle2 size={14} color="#00e676" />
-              <span>Real-time ATM cash-out dispatch alerts</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-              <CheckCircle2 size={14} color="#00e676" />
-              <span>Victim Golden Window time countdown</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-              <CheckCircle2 size={14} color="#00e676" />
-              <span>Mobile PWA offline mode support</span>
-            </div>
-          </div>
-
-          {/* Field Officer Form */}
           <form onSubmit={handleFieldOfficerLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: 'auto' }}>
+            <div>
+              <label style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                Registered Field Officer
+              </label>
+              <select
+                value={fieldOfficerId}
+                onChange={(e) => handleSelectFieldOfficer(e.target.value)}
+                className="cyber-input"
+                style={inputStyle}
+              >
+                <option value="">Select field officer</option>
+                {FIELD_OFFICERS.map((officer) => (
+                  <option key={officer.id} value={officer.id}>
+                    {officer.name} · {officer.badge}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div>
                 <label style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
@@ -359,9 +456,10 @@ export default function AuthLandingPage() {
                 <input
                   type="text"
                   value={fieldBadge}
-                  onChange={(e) => setFieldBadge(e.target.value)}
+                  onChange={(e) => handleBadgeLookup(e.target.value, 'field')}
+                  placeholder="e.g. DL/CY/1204"
                   className="cyber-input"
-                  style={{ width: '100%', fontSize: '0.82rem', fontFamily: 'var(--font-mono)', padding: '9px 10px', borderRadius: '8px' }}
+                  style={{ ...inputStyle, fontFamily: 'var(--font-mono)' }}
                 />
               </div>
 
@@ -373,8 +471,9 @@ export default function AuthLandingPage() {
                   type="text"
                   value={fieldUnit}
                   onChange={(e) => setFieldUnit(e.target.value)}
+                  placeholder="Assigned patrol unit"
                   className="cyber-input"
-                  style={{ width: '100%', fontSize: '0.82rem', padding: '9px 10px', borderRadius: '8px' }}
+                  style={inputStyle}
                 />
               </div>
             </div>
@@ -389,11 +488,22 @@ export default function AuthLandingPage() {
                   type="password"
                   value={fieldPin}
                   onChange={(e) => setFieldPin(e.target.value)}
+                  placeholder="Enter officer PIN"
                   className="cyber-input"
-                  style={{ width: '100%', fontSize: '0.86rem', padding: '9px 12px 9px 36px', borderRadius: '8px' }}
+                  style={iconInputStyle}
                 />
               </div>
+              <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>
+                PIN is the last 4 digits of the selected officer's badge.
+              </p>
             </div>
+
+            {fieldError && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', color: '#ff7597' }}>
+                <AlertCircle size={13} />
+                {fieldError}
+              </div>
+            )}
 
             <button
               type="submit"
@@ -415,30 +525,9 @@ export default function AuthLandingPage() {
               <span>Login to Field Officer Portal</span>
               <ArrowRight size={15} />
             </button>
-
-            <button
-              type="button"
-              onClick={handleFieldOfficerLogin}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#00e676',
-                fontSize: '0.76rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                textAlign: 'center',
-                marginTop: '2px',
-                textDecoration: 'underline'
-              }}
-            >
-              Direct Demo Access &rarr; Field Officer Portal
-            </button>
           </form>
         </div>
 
-        {/* ========================================================================= */}
-        {/* CARD 3: LAW ENFORCEMENT COMMAND & CONTROL (C2) PORTAL */}
-        {/* ========================================================================= */}
         <div
           onClick={() => setSelectedRole('officer')}
           className="glass-panel"
@@ -455,7 +544,6 @@ export default function AuthLandingPage() {
             transition: 'all 0.25s ease'
           }}
         >
-          {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{
@@ -490,26 +578,26 @@ export default function AuthLandingPage() {
             Full Trinetra C2 Center, GIS Hotspot Heatmaps, ATM cash-out ML models, and Neo4j Mule Graph analysis.
           </p>
 
-          {/* Quick Presets */}
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', alignSelf: 'center', marginRight: '2px' }}>
-              Preset:
-            </span>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleQuickOfficerRole('DL-CYBER-8842', 'Special Cyber Cell HQ');
-              }}
-              className="interactive-chip"
-              style={{ fontSize: '0.68rem', padding: '3px 8px' }}
-            >
-              🕵️ Cyber Investigator
-            </button>
-          </div>
-
-          {/* Officer Login Form */}
           <form onSubmit={handleOfficerLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: 'auto' }}>
+            <div>
+              <label style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                Registered Investigator
+              </label>
+              <select
+                value={investigatorId}
+                onChange={(e) => handleSelectInvestigator(e.target.value)}
+                className="cyber-input"
+                style={inputStyle}
+              >
+                <option value="">Select investigator</option>
+                {INVESTIGATORS.map((officer) => (
+                  <option key={officer.id} value={officer.id}>
+                    {officer.name} · {officer.badge}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div>
                 <label style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
@@ -518,9 +606,10 @@ export default function AuthLandingPage() {
                 <input
                   type="text"
                   value={officerBadge}
-                  onChange={(e) => setOfficerBadge(e.target.value)}
+                  onChange={(e) => handleBadgeLookup(e.target.value, 'investigator')}
+                  placeholder="e.g. DL/CYB/8842"
                   className="cyber-input"
-                  style={{ width: '100%', fontSize: '0.82rem', fontFamily: 'var(--font-mono)', padding: '9px 10px', borderRadius: '8px' }}
+                  style={{ ...inputStyle, fontFamily: 'var(--font-mono)' }}
                 />
               </div>
 
@@ -532,8 +621,9 @@ export default function AuthLandingPage() {
                   type="text"
                   value={officerUnit}
                   onChange={(e) => setOfficerUnit(e.target.value)}
+                  placeholder="Assigned cyber unit"
                   className="cyber-input"
-                  style={{ width: '100%', fontSize: '0.82rem', padding: '9px 10px', borderRadius: '8px' }}
+                  style={inputStyle}
                 />
               </div>
             </div>
@@ -548,11 +638,22 @@ export default function AuthLandingPage() {
                   type="password"
                   value={officerPin}
                   onChange={(e) => setOfficerPin(e.target.value)}
+                  placeholder="Enter investigator PIN"
                   className="cyber-input"
-                  style={{ width: '100%', fontSize: '0.86rem', padding: '9px 12px 9px 36px', borderRadius: '8px' }}
+                  style={iconInputStyle}
                 />
               </div>
+              <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>
+                PIN is the last 4 digits of the selected investigator's badge.
+              </p>
             </div>
+
+            {officerError && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', color: '#ff7597' }}>
+                <AlertCircle size={13} />
+                {officerError}
+              </div>
+            )}
 
             <button
               type="submit"
@@ -572,30 +673,11 @@ export default function AuthLandingPage() {
               <span>Login to Trinetra C2 Center</span>
               <ArrowRight size={15} />
             </button>
-
-            <button
-              type="button"
-              onClick={handleOfficerLogin}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#c084fc',
-                fontSize: '0.76rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                textAlign: 'center',
-                marginTop: '2px',
-                textDecoration: 'underline'
-              }}
-            >
-              Direct Demo Access &rarr; Trinetra C2 Center
-            </button>
           </form>
         </div>
 
       </div>
 
-      {/* 3. Bottom Trust & Security Telemetry Footer */}
       <div style={{
         display: 'flex',
         justifyContent: 'center',

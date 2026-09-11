@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { usePWAInstall } from "../hooks/usePWAInstall";
+import AppLogo from "./AppLogo";
 import {
   Download,
   Smartphone,
@@ -77,20 +78,7 @@ export default function FieldOfficerPWAModal({ isOpen, onClose }) {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <div
-              style={{
-                width: "42px",
-                height: "42px",
-                borderRadius: "12px",
-                background: "linear-gradient(135deg, #00e5ff, #3b82f6)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 0 20px rgba(0, 229, 255, 0.4)",
-              }}
-            >
-              <Shield size={22} color="#040914" strokeWidth={2.4} />
-            </div>
+            <AppLogo size={42} radius={12} />
             <div>
               <div
                 style={{

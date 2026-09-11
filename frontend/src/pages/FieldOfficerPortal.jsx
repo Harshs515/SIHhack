@@ -24,62 +24,10 @@ import {
   LogOut,
 } from "lucide-react";
 import FieldOfficerPWAModal from "../components/FieldOfficerPWAModal";
+import AppLogo from "../components/AppLogo";
 import { usePWAInstall } from "../hooks/usePWAInstall";
-
-// ─── Mock Field Officers ──────────────────────────────────────────────────────
-const FIELD_OFFICERS = [
-  {
-    id: "FO-DEL-001",
-    name: "Constable Ravi Kumar",
-    badge: "DL/CY/1204",
-    rank: "Constable",
-    district: "Rohini",
-    state: "Delhi",
-    assignedAtm: "ATM-DEL-NW-07",
-    atmAddress: "Sector 8 Market Complex, Rohini, New Delhi",
-    bank: "State Bank of India",
-    latitude: 28.7041,
-    longitude: 77.1025,
-    shift: "08:00 – 20:00",
-    phone: "+91-11-27050011",
-    avatar: "RK",
-    color: "#00e5ff",
-  },
-  {
-    id: "FO-DEL-002",
-    name: "HC Priya Sharma",
-    badge: "DL/CY/0892",
-    rank: "Head Constable",
-    district: "New Delhi",
-    state: "Delhi",
-    assignedAtm: "ATM-DEL-CP-02",
-    atmAddress: "Connaught Place Market, Central Delhi",
-    bank: "HDFC Bank",
-    latitude: 28.6289,
-    longitude: 77.218,
-    shift: "20:00 – 08:00",
-    phone: "+91-11-23412345",
-    avatar: "PS",
-    color: "#a855f7",
-  },
-  {
-    id: "FO-MUM-001",
-    name: "SI Rohit Desai",
-    badge: "MH/CY/3311",
-    rank: "Sub Inspector",
-    district: "Mumbai Suburban",
-    state: "Maharashtra",
-    assignedAtm: "ATM-MUM-AN-03",
-    atmAddress: "Andheri East Station Road, Mumbai",
-    bank: "ICICI Bank",
-    latitude: 19.1196,
-    longitude: 72.8468,
-    shift: "08:00 – 20:00",
-    phone: "+91-22-26834000",
-    avatar: "RD",
-    color: "#00e676",
-  },
-];
+import { FIELD_OFFICERS } from "../data/personnel";
+import { getSession, clearSession } from "../utils/session";
 
 // ─── Mock Notifications (Clean Tactical Law Enforcement Formatting) ───────────
 const generateNotifications = (district) => {
@@ -773,20 +721,7 @@ function PortalDashboard({ officer }) {
               flexShrink: 0,
             }}
           >
-            <div
-              style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "10px",
-                background: "linear-gradient(135deg, #00e5ff, #3b82f6)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 0 18px rgba(0,229,255,0.4)",
-              }}
-            >
-              <Shield size={19} color="#040914" strokeWidth={2.4} />
-            </div>
+            <AppLogo size={36} radius={10} />
             <div>
               <div
                 style={{
@@ -921,7 +856,10 @@ function PortalDashboard({ officer }) {
 
             {/* Logout Button */}
             <button
-              onClick={() => navigate("/auth")}
+              onClick={() => {
+                clearSession();
+                navigate("/auth");
+              }}
               style={{
                 height: "32px",
                 padding: "0 12px",
@@ -1618,8 +1556,13 @@ function PortalDashboard({ officer }) {
 
 // ─── Root Export (Direct View Without Profile Selection / Auth Gate) ──────────
 export default function FieldOfficerPortal() {
-  // Preselected on-duty officer; friend will integrate auth features directly into this state/prop
-  const [currentOfficer] = useState(FIELD_OFFICERS[0]);
+  const session = getSession();
+  const matchedOfficer =
+    session?.role === "field_officer" && session.profile
+      ? FIELD_OFFICERS.find((officer) => officer.id === session.profile.id) ||
+        session.profile
+      : null;
+  const [currentOfficer] = useState(matchedOfficer || FIELD_OFFICERS[0]);
 
   // Dynamically set the manifest link to Field Officer specific PWA manifest
   useEffect(() => {

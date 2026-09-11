@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ShieldCheck,
   PhoneCall,
   CheckCircle2,
   ArrowRight,
@@ -13,13 +12,17 @@ import {
 } from 'lucide-react';
 import { MOCK_COMPLAINTS } from '../data/mockData';
 import { submitComplaint, trackComplaint } from '../api/api';
+import AppLogo from '../components/AppLogo';
+import { getSession } from '../utils/session';
 
 export default function NcrpCitizenPortalPage({ complaints = MOCK_COMPLAINTS, onAddComplaint }) {
   const navigate = useNavigate();
+  const session = getSession();
+  const citizen = session?.role === 'citizen' ? session.profile : null;
 
   // Form State
-  const [victimName, setVictimName] = useState('');
-  const [victimContact, setVictimContact] = useState('');
+  const [victimName, setVictimName] = useState(citizen?.name || '');
+  const [victimContact, setVictimContact] = useState(citizen?.mobile || '');
   const [city, setCity] = useState('');
   const [category, setCategory] = useState('Digital Arrest Scam');
   const [amount, setAmount] = useState('');
@@ -95,19 +98,7 @@ export default function NcrpCitizenPortalPage({ complaints = MOCK_COMPLAINTS, on
       {/* 1. Clean Header Bar */}
       <div className="glass-panel" style={{ padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            width: '46px',
-            height: '46px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #00e5ff 0%, #3a7bd5 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#040914',
-            boxShadow: '0 0 16px rgba(0, 229, 255, 0.35)'
-          }}>
-            <ShieldCheck size={26} strokeWidth={2.5} />
-          </div>
+          <AppLogo size={46} radius={12} />
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <h1 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
