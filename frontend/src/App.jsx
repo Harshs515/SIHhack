@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
 
 // Global Navigation & Error Boundary Components
 import Navbar from "./components/Navbar";
@@ -14,8 +20,17 @@ import MuleGraphPage from "./pages/MuleGraphPage";
 import LeaInterfacePage from "./pages/LeaInterfacePage";
 import AlertsCenterPage from "./pages/AlertsCenterPage";
 import NcrpComplaintsPage from "./pages/NcrpComplaintsPage";
+import NcrpCitizenPortalPage from "./pages/NcrpCitizenPortalPage";
+import AuthLandingPage from "./pages/AuthLandingPage";
 import AnalyticsReportsPage from "./pages/AnalyticsReportsPage";
 import FieldOfficerPortal from "./pages/FieldOfficerPortal";
+
+import {
+  getAtms,
+  getComplaints,
+  getHotspots,
+  getPoliceStations,
+} from "./api/api";
 
 // Domain Intelligence Mock Data
 import {
@@ -25,18 +40,10 @@ import {
   MOCK_POLICE_STATIONS,
 } from "./data/mockData";
 
-// Supabase Direct Services
-import {
-  fetchSupabaseComplaints,
-  fetchSupabaseHotspots,
-  fetchSupabaseAtms,
-  fetchSupabasePoliceStations,
-} from "./services/supabase";
-
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
-function AppShell({
+function AppContent({
   isRunningML,
   handleTriggerML,
   theme,
@@ -50,6 +57,16 @@ function AppShell({
 }) {
   const location = useLocation();
   const isFieldOfficer = location.pathname.startsWith("/field-officer");
+  const hiddenChatRoutes = [
+    "/",
+    "/ncrp-portal",
+    "/citizen-portal",
+    "/ncrp-simulation",
+    "/auth",
+    "/login",
+  ];
+  const hideChatbot =
+    hiddenChatRoutes.includes(location.pathname) || isFieldOfficer;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
@@ -62,18 +79,18 @@ function AppShell({
           onToggleTheme={toggleTheme}
           activeAlertsCount={
             (hotspots || []).filter(
-              (h) => h.alert_tier === "P1" || h.atm_risk_tier === "CRITICAL",
+              (h) => h.alert_tier === "P1" || h.atm_risk_tier === "CRITICAL"
             ).length || 2
           }
         />
       )}
 
-      {/* Page content — full width */}
+      {/* Page content — full width, no sidebar */}
       <main style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
         <ErrorBoundary>
           <Routes>
-            {/* Default → Dashboard */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            {/* Default → Authentication Gateway / Landing */}
+            <Route path="/" element={<Navigate to="/auth" replace />} />
 
             {/* 0. Overview Dashboard */}
             <Route
@@ -90,6 +107,22 @@ function AppShell({
                 />
               }
             />
+
+            {/* 1. Master Command & Control Center (if needed) */}
+            {/* <Route
+              path="/command-center"
+              element={
+                <CommandCenter
+                  complaints={complaints}
+                  hotspots={hotspots}
+                  atms={atms}
+                  policeStations={policeStations}
+                  isRunningML={isRunningML}
+                  onTriggerML={handleTriggerML}
+                  mlStatus={mlStatus}
+                />
+              }
+            /> */}
 
             {/* 2. Fullscreen GIS Risk Heatmap */}
             <Route
@@ -124,32 +157,55 @@ function AppShell({
               }
             />
 
-            {/* 7. Executive Analytics & I4C Dossier Reports */}
+            {/* 7.1. NCRP Citizen Portal Simulation (cybercrime.gov.in) */}
+            <Route
+              path="/ncrp-portal"
+              element={
+                <NcrpCitizenPortalPage
+                  complaints={complaints}
+                  onAddComplaint={handleAddComplaint}
+                />
+              }
+            />
+            <Route
+              path="/citizen-portal"
+              element={<Navigate to="/ncrp-portal" replace />}
+            />
+            <Route
+              path="/ncrp-simulation"
+              element={<Navigate to="/ncrp-portal" replace />}
+            />
+
+            {/* 8. Executive Analytics & I4C Dossier Reports */}
             <Route
               path="/analytics-reports"
               element={<AnalyticsReportsPage />}
             />
 
-            {/* 8. Field Officer Portal */}
+            {/* 9. Field Officer Portal */}
             <Route path="/field-officer" element={<FieldOfficerPortal />} />
 
+            {/* 11. Authentication Gateway (Citizen & Field Officer) */}
+            <Route path="/auth" element={<AuthLandingPage />} />
+            <Route path="/login" element={<AuthLandingPage />} />
+
             {/* Fallback redirect */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/auth" replace />} />
           </Routes>
         </ErrorBoundary>
       </main>
 
-      {/* Hide Chatbot on Field Officer Portal for clean distraction-free field view */}
-      {!isFieldOfficer && <AiChatbot />}
+      {/* Global AI Voice & Chat Copilot (excluded on Citizen Portal, Login, and Field Officer) */}
+      {!hideChatbot && <AiChatbot />}
     </div>
   );
 }
 
 export default function App() {
-  const [complaints, setComplaints] = useState([]);
-  const [hotspots, setHotspots] = useState([]);
-  const [atms, setAtms] = useState([]);
-  const [policeStations, setPoliceStations] = useState([]);
+  const [complaints, setComplaints] = useState(MOCK_COMPLAINTS);
+  const [hotspots, setHotspots] = useState(MOCK_HOTSPOTS);
+  const [atms, setAtms] = useState(MOCK_ATMS);
+  const [policeStations, setPoliceStations] = useState(MOCK_POLICE_STATIONS);
   const [isRunningML, setIsRunningML] = useState(false);
   const [mlStatus, setMlStatus] = useState("ACTIVE");
   const [theme, setTheme] = useState("dark");
@@ -162,36 +218,22 @@ export default function App() {
     });
   };
 
+  // Fetch real data from backend when available with seamless fallback to mock data
   const fetchData = async () => {
     try {
-      const [compRes, hotRes, atmRes, psRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/complaints`),
-        fetch(`${API_BASE_URL}/predictions/hotspots`),
-        fetch(`${API_BASE_URL}/predictions/atms`),
-        fetch(`${API_BASE_URL}/predictions/police-stations`),
+      const [compData, hotData, atmData, psData] = await Promise.all([
+        getComplaints(),
+        getHotspots(),
+        getAtms(),
+        getPoliceStations(),
       ]);
 
-      if (compRes.ok) {
-        const compData = await compRes.json();
-        if (compData.data && compData.data.length > 0)
-          setComplaints(compData.data);
-      }
-      if (hotRes.ok) {
-        const hotData = await hotRes.json();
-        if (hotData.data && hotData.data.length > 0)
-          setHotspots(hotData.data);
-      }
-      if (atmRes.ok) {
-        const atmData = await atmRes.json();
-        if (atmData.data && atmData.data.length > 0) setAtms(atmData.data);
-      }
-      if (psRes.ok) {
-        const psData = await psRes.json();
-        if (psData.data && psData.data.length > 0)
-          setPoliceStations(psData.data);
-      }
+      if (compData.data && compData.data.length > 0) setComplaints(compData.data);
+      if (hotData.data && hotData.data.length > 0) setHotspots(hotData.data);
+      if (atmData.data && atmData.data.length > 0) setAtms(atmData.data);
+      if (psData.data && psData.data.length > 0) setPoliceStations(psData.data);
     } catch (err) {
-      console.warn("Using offline mock intelligence cache");
+      console.warn("Using offline mock intelligence cache", err);
       setComplaints(MOCK_COMPLAINTS);
       setHotspots(MOCK_HOTSPOTS);
       setAtms(MOCK_ATMS);
@@ -201,6 +243,8 @@ export default function App() {
 
   useEffect(() => {
     fetchData();
+    const interval = setInterval(fetchData, 20000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleTriggerML = async () => {
@@ -230,7 +274,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <AppShell
+      <AppContent
         isRunningML={isRunningML}
         handleTriggerML={handleTriggerML}
         theme={theme}

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   FileSpreadsheet,
   PlusCircle,
@@ -9,7 +10,9 @@ import {
   Database,
   Tag,
   Zap,
-  ArrowRight
+  ArrowRight,
+  ShieldCheck,
+  ExternalLink
 } from 'lucide-react';
 import { MOCK_COMPLAINTS } from '../data/mockData';
 
@@ -47,6 +50,7 @@ const SAMPLE_PRESETS = [
 ];
 
 export default function NcrpComplaintsPage({ complaints = MOCK_COMPLAINTS, onAddComplaint }) {
+  const navigate = useNavigate();
   const [complaintList, setComplaintList] = useState(complaints);
   const [searchTerm, setSearchTerm] = useState('');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
@@ -158,13 +162,23 @@ export default function NcrpComplaintsPage({ complaints = MOCK_COMPLAINTS, onAdd
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => navigate('/ncrp-portal')}
+            className="cyber-btn cyber-btn-secondary"
+            style={{ fontSize: '0.8rem', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <ShieldCheck size={15} color="#00e5ff" />
+            <span>Open Citizen Portal Simulator</span>
+            <ExternalLink size={13} />
+          </button>
+
           <button
             onClick={() => setShowSubmitModal(true)}
             className="cyber-btn"
             style={{ fontSize: '0.8rem', padding: '8px 16px' }}
           >
-            <PlusCircle size={15} /> Lodge Citizen Complaint
+            <PlusCircle size={15} /> Fast Ingest Modal
           </button>
         </div>
       </div>
