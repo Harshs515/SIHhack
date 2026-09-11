@@ -17,24 +17,31 @@ import {
   Cpu,
   CheckCircle2,
   Smartphone,
+  Radio,
+  Navigation,
   Eye
 } from 'lucide-react';
 
 export default function AuthLandingPage() {
   const navigate = useNavigate();
 
-  // Active Role Tab: 'citizen' or 'officer'
-  const [selectedRole, setSelectedRole] = useState('citizen'); // 'citizen' | 'officer'
+  // Active Role Tab: 'citizen' | 'officer' | 'field_officer'
+  const [selectedRole, setSelectedRole] = useState('field_officer');
 
   // Citizen Login State
   const [citizenMobile, setCitizenMobile] = useState('');
   const [citizenOtp, setCitizenOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
 
-  // Officer Login State
+  // C2 Command Officer Login State
   const [officerBadge, setOfficerBadge] = useState('DL-CYBER-8842');
   const [officerUnit, setOfficerUnit] = useState('Special Cyber Cell, Delhi');
   const [officerPin, setOfficerPin] = useState('••••••');
+
+  // Field Officer Login State
+  const [fieldBadge, setFieldBadge] = useState('DL-PATROL-04');
+  const [fieldUnit, setFieldUnit] = useState('Rohini Sector 14 Patrol');
+  const [fieldPin, setFieldPin] = useState('••••••');
 
   const handleSendOtp = () => {
     setOtpSent(true);
@@ -51,6 +58,11 @@ export default function AuthLandingPage() {
     navigate('/dashboard');
   };
 
+  const handleFieldOfficerLogin = (e) => {
+    if (e) e.preventDefault();
+    navigate('/field-officer');
+  };
+
   const handleQuickOfficerRole = (badge, unit) => {
     setOfficerBadge(badge);
     setOfficerUnit(unit);
@@ -65,7 +77,7 @@ export default function AuthLandingPage() {
       justifyContent: 'center',
       alignItems: 'center',
       padding: '24px 20px 48px',
-      maxWidth: '1280px',
+      maxWidth: '1360px',
       margin: '0 auto',
       width: '100%'
     }}>
@@ -105,17 +117,17 @@ export default function AuthLandingPage() {
         </h1>
 
         <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: '1.5', margin: 0 }}>
-          Centralized secure entry for citizens filing NCRP complaints and Law Enforcement Officers accessing real-time predictive intelligence.
+          Centralized secure entry for citizens filing NCRP complaints, Law Enforcement Officers accessing predictive command intelligence, and Field Patrol Officers on active surveillance.
         </p>
       </div>
 
-      {/* 2. Dual Role Selection Cards (Citizen vs Field Officer) */}
+      {/* 2. Triple Role Selection Cards (Citizen vs Command Center vs Field Officer) */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-        gap: '24px',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+        gap: '20px',
         width: '100%',
-        maxWidth: '1040px'
+        maxWidth: '1280px'
       }}>
 
         {/* ========================================================================= */}
@@ -125,10 +137,10 @@ export default function AuthLandingPage() {
           onClick={() => setSelectedRole('citizen')}
           className="glass-panel"
           style={{
-            padding: '28px',
+            padding: '24px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '20px',
+            gap: '18px',
             border: selectedRole === 'citizen' ? '2px solid #00e5ff' : '1px solid var(--border-glass)',
             boxShadow: selectedRole === 'citizen' ? '0 0 30px rgba(0, 229, 255, 0.25)' : 'none',
             background: selectedRole === 'citizen' ? 'linear-gradient(135deg, rgba(0, 229, 255, 0.05) 0%, rgba(13, 20, 36, 0.95) 100%)' : 'var(--bg-card)',
@@ -139,10 +151,10 @@ export default function AuthLandingPage() {
         >
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{
-                width: '48px',
-                height: '48px',
+                width: '44px',
+                height: '44px',
                 borderRadius: '12px',
                 background: 'linear-gradient(135deg, #00e5ff 0%, #0077ff 100%)',
                 display: 'flex',
@@ -151,76 +163,76 @@ export default function AuthLandingPage() {
                 color: '#040914',
                 boxShadow: '0 0 16px rgba(0, 229, 255, 0.4)'
               }}>
-                <User size={26} strokeWidth={2.5} />
+                <User size={24} strokeWidth={2.5} />
               </div>
               <div>
-                <span style={{ fontSize: '0.68rem', color: '#00e5ff', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <span style={{ fontSize: '0.65rem', color: '#00e5ff', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Public Portal
                 </span>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', margin: 0 }}>
+                <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#fff', margin: 0 }}>
                   Citizen Access
                 </h2>
               </div>
             </div>
 
-            <span className="pulse-badge primary" style={{ fontSize: '0.68rem' }}>
+            <span className="pulse-badge primary" style={{ fontSize: '0.65rem' }}>
               NCRP 1930
             </span>
           </div>
 
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
-            Report online fraud, suspect UPI / bank transfers, track complaint FIR status, or verify suspicious callers.
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
+            Report online fraud, suspect UPI transfers, track complaint FIR status, or verify suspicious callers.
           </p>
 
-          {/* Citizen Feature Bullets */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.02)', padding: '12px 14px', borderRadius: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+          {/* Feature Bullets */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.02)', padding: '10px 12px', borderRadius: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
               <CheckCircle2 size={14} color="#00e676" />
               <span>Lodge instant cybercrime complaint</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
               <CheckCircle2 size={14} color="#00e676" />
-              <span>Track 1930 bank lien freeze & status</span>
+              <span>Track 1930 bank lien freeze status</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
               <CheckCircle2 size={14} color="#00e676" />
-              <span>No password required (Mobile OTP auth)</span>
+              <span>Mobile OTP Auth (No password)</span>
             </div>
           </div>
 
           {/* Citizen Login Form */}
-          <form onSubmit={handleCitizenLogin} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '4px' }}>
+          <form onSubmit={handleCitizenLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: 'auto' }}>
             <div>
-              <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '5px' }}>
-                Mobile Number or Email ID
+              <label style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                Mobile Number or Email
               </label>
               <div style={{ position: 'relative' }}>
-                <Smartphone size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '13px' }} />
+                <Smartphone size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '11px' }} />
                 <input
                   type="text"
                   value={citizenMobile}
                   onChange={(e) => setCitizenMobile(e.target.value)}
                   placeholder="+91-98765-43210"
                   className="cyber-input"
-                  style={{ width: '100%', fontSize: '0.9rem', padding: '10px 12px 10px 38px', borderRadius: '8px' }}
+                  style={{ width: '100%', fontSize: '0.86rem', padding: '9px 12px 9px 36px', borderRadius: '8px' }}
                 />
               </div>
             </div>
 
             {otpSent && (
               <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '5px' }}>
-                  Enter 6-Digit OTP (Simulated: 782910)
+                <label style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                  6-Digit OTP (Simulated: 782910)
                 </label>
                 <div style={{ position: 'relative' }}>
-                  <KeyRound size={16} color="#00e676" style={{ position: 'absolute', left: '12px', top: '13px' }} />
+                  <KeyRound size={15} color="#00e676" style={{ position: 'absolute', left: '12px', top: '11px' }} />
                   <input
                     type="text"
                     value={citizenOtp}
                     onChange={(e) => setCitizenOtp(e.target.value)}
                     placeholder="782910"
                     className="cyber-input"
-                    style={{ width: '100%', fontSize: '0.95rem', fontFamily: 'var(--font-mono)', fontWeight: 700, padding: '10px 12px 10px 38px', borderRadius: '8px', color: '#00e676' }}
+                    style={{ width: '100%', fontSize: '0.9rem', fontFamily: 'var(--font-mono)', fontWeight: 700, padding: '9px 12px 9px 36px', borderRadius: '8px', color: '#00e676' }}
                   />
                 </div>
               </div>
@@ -231,23 +243,22 @@ export default function AuthLandingPage() {
                 type="button"
                 onClick={handleSendOtp}
                 className="cyber-btn cyber-btn-secondary"
-                style={{ fontSize: '0.82rem', padding: '10px', marginTop: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                style={{ fontSize: '0.8rem', padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
               >
                 <Zap size={14} color="#00e5ff" />
-                <span>Send OTP (One-Click Verification)</span>
+                <span>Send OTP (Verify)</span>
               </button>
             ) : (
               <button
                 type="submit"
                 className="cyber-btn"
-                style={{ fontSize: '0.9rem', padding: '12px', marginTop: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                style={{ fontSize: '0.86rem', padding: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
               >
-                <span>Enter NCRP Citizen Portal</span>
-                <ArrowRight size={16} />
+                <span>Enter Citizen Portal</span>
+                <ArrowRight size={15} />
               </button>
             )}
 
-            {/* Direct Quick Bypass Button */}
             <button
               type="button"
               onClick={handleCitizenLogin}
@@ -255,30 +266,187 @@ export default function AuthLandingPage() {
                 background: 'transparent',
                 border: 'none',
                 color: '#00e5ff',
-                fontSize: '0.78rem',
+                fontSize: '0.76rem',
                 fontWeight: 700,
                 cursor: 'pointer',
                 textAlign: 'center',
-                marginTop: '4px',
+                marginTop: '2px',
                 textDecoration: 'underline'
               }}
             >
-              Direct Demo Access &rarr; Open Citizen Portal
+              Direct Demo Access &rarr; Citizen Portal
             </button>
           </form>
         </div>
 
         {/* ========================================================================= */}
-        {/* CARD 2: LAW ENFORCEMENT & FIELD OFFICER PORTAL */}
+        {/* CARD 2: FIELD OFFICER PORTAL (NEW ROLE) */}
+        {/* ========================================================================= */}
+        <div
+          onClick={() => setSelectedRole('field_officer')}
+          className="glass-panel"
+          style={{
+            padding: '24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '18px',
+            border: selectedRole === 'field_officer' ? '2px solid #00e676' : '1px solid var(--border-glass)',
+            boxShadow: selectedRole === 'field_officer' ? '0 0 30px rgba(0, 230, 118, 0.25)' : 'none',
+            background: selectedRole === 'field_officer' ? 'linear-gradient(135deg, rgba(0, 230, 118, 0.06) 0%, rgba(13, 20, 36, 0.95) 100%)' : 'var(--bg-card)',
+            borderRadius: '16px',
+            cursor: 'pointer',
+            transition: 'all 0.25s ease'
+          }}
+        >
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #00e676 0%, #00b0ff 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#040914',
+                boxShadow: '0 0 16px rgba(0, 230, 118, 0.4)'
+              }}>
+                <Radio size={24} strokeWidth={2.5} />
+              </div>
+              <div>
+                <span style={{ fontSize: '0.65rem', color: '#00e676', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  On-Ground Tactical Response
+                </span>
+                <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#fff', margin: 0 }}>
+                  Field Officer Portal
+                </h2>
+              </div>
+            </div>
+
+            <span className="pulse-badge success" style={{ fontSize: '0.65rem', background: 'rgba(0,230,118,0.15)', color: '#00e676', border: '1px solid rgba(0,230,118,0.4)' }}>
+              TACTICAL
+            </span>
+          </div>
+
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
+            Mobile PWA for patrol officers. Real-time ATM cash-out interception alerts, victim Golden Window timers, and location dispatch.
+          </p>
+
+          {/* Feature Bullets */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.02)', padding: '10px 12px', borderRadius: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+              <CheckCircle2 size={14} color="#00e676" />
+              <span>Real-time ATM cash-out dispatch alerts</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+              <CheckCircle2 size={14} color="#00e676" />
+              <span>Victim Golden Window time countdown</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+              <CheckCircle2 size={14} color="#00e676" />
+              <span>Mobile PWA offline mode support</span>
+            </div>
+          </div>
+
+          {/* Field Officer Form */}
+          <form onSubmit={handleFieldOfficerLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: 'auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <div>
+                <label style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                  Officer Badge ID
+                </label>
+                <input
+                  type="text"
+                  value={fieldBadge}
+                  onChange={(e) => setFieldBadge(e.target.value)}
+                  className="cyber-input"
+                  style={{ width: '100%', fontSize: '0.82rem', fontFamily: 'var(--font-mono)', padding: '9px 10px', borderRadius: '8px' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                  Patrol Sector
+                </label>
+                <input
+                  type="text"
+                  value={fieldUnit}
+                  onChange={(e) => setFieldUnit(e.target.value)}
+                  className="cyber-input"
+                  style={{ width: '100%', fontSize: '0.82rem', padding: '9px 10px', borderRadius: '8px' }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                Tactical Security PIN
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Lock size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '11px' }} />
+                <input
+                  type="password"
+                  value={fieldPin}
+                  onChange={(e) => setFieldPin(e.target.value)}
+                  className="cyber-input"
+                  style={{ width: '100%', fontSize: '0.86rem', padding: '9px 12px 9px 36px', borderRadius: '8px' }}
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="cyber-btn"
+              style={{
+                fontSize: '0.86rem',
+                padding: '11px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                background: 'linear-gradient(135deg, #00e676 0%, #00b0ff 100%)',
+                boxShadow: '0 0 20px rgba(0, 230, 118, 0.35)',
+                color: '#040914',
+                fontWeight: 800
+              }}
+            >
+              <Navigation size={16} />
+              <span>Login to Field Officer Portal</span>
+              <ArrowRight size={15} />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleFieldOfficerLogin}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#00e676',
+                fontSize: '0.76rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                textAlign: 'center',
+                marginTop: '2px',
+                textDecoration: 'underline'
+              }}
+            >
+              Direct Demo Access &rarr; Field Officer Portal
+            </button>
+          </form>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* CARD 3: LAW ENFORCEMENT COMMAND & CONTROL (C2) PORTAL */}
         {/* ========================================================================= */}
         <div
           onClick={() => setSelectedRole('officer')}
           className="glass-panel"
           style={{
-            padding: '28px',
+            padding: '24px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '20px',
+            gap: '18px',
             border: selectedRole === 'officer' ? '2px solid #a855f7' : '1px solid var(--border-glass)',
             boxShadow: selectedRole === 'officer' ? '0 0 30px rgba(168, 85, 247, 0.25)' : 'none',
             background: selectedRole === 'officer' ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.06) 0%, rgba(13, 20, 36, 0.95) 100%)' : 'var(--bg-card)',
@@ -289,10 +457,10 @@ export default function AuthLandingPage() {
         >
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{
-                width: '48px',
-                height: '48px',
+                width: '44px',
+                height: '44px',
                 borderRadius: '12px',
                 background: 'linear-gradient(135deg, #a855f7 0%, #3b82f6 100%)',
                 display: 'flex',
@@ -301,43 +469,32 @@ export default function AuthLandingPage() {
                 color: '#fff',
                 boxShadow: '0 0 16px rgba(168, 85, 247, 0.4)'
               }}>
-                <BadgeCheck size={28} strokeWidth={2.2} />
+                <BadgeCheck size={24} strokeWidth={2.2} />
               </div>
               <div>
-                <span style={{ fontSize: '0.68rem', color: '#c084fc', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Law Enforcement Agency
+                <span style={{ fontSize: '0.65rem', color: '#c084fc', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Law Enforcement HQ
                 </span>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', margin: 0 }}>
-                  Field & LEA Officer
+                <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#fff', margin: 0 }}>
+                  Command & Control
                 </h2>
               </div>
             </div>
 
-            <span className="pulse-badge danger" style={{ fontSize: '0.68rem' }}>
+            <span className="pulse-badge danger" style={{ fontSize: '0.65rem' }}>
               RESTRICTED
             </span>
           </div>
 
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
-            Access Trinetra Command & Control, GIS Hotspot Heatmaps, ATM cash-out predictions, and Neo4j Mule Chain graphs.
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
+            Full Trinetra C2 Center, GIS Hotspot Heatmaps, ATM cash-out ML models, and Neo4j Mule Graph analysis.
           </p>
 
-          {/* Quick Demo Role Presets */}
+          {/* Quick Presets */}
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', alignSelf: 'center', marginRight: '4px' }}>
-              Quick Credentials:
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', alignSelf: 'center', marginRight: '2px' }}>
+              Preset:
             </span>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleQuickOfficerRole('DL-PATROL-04', 'Rohini Sector 14 Patrol');
-              }}
-              className="interactive-chip"
-              style={{ fontSize: '0.7rem', padding: '3px 8px' }}
-            >
-              🚓 Field Patrol
-            </button>
             <button
               type="button"
               onClick={(e) => {
@@ -345,30 +502,30 @@ export default function AuthLandingPage() {
                 handleQuickOfficerRole('DL-CYBER-8842', 'Special Cyber Cell HQ');
               }}
               className="interactive-chip"
-              style={{ fontSize: '0.7rem', padding: '3px 8px' }}
+              style={{ fontSize: '0.68rem', padding: '3px 8px' }}
             >
               🕵️ Cyber Investigator
             </button>
           </div>
 
           {/* Officer Login Form */}
-          <form onSubmit={handleOfficerLogin} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <form onSubmit={handleOfficerLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: 'auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '5px' }}>
-                  Officer Badge ID
+                <label style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                  Badge ID
                 </label>
                 <input
                   type="text"
                   value={officerBadge}
                   onChange={(e) => setOfficerBadge(e.target.value)}
                   className="cyber-input"
-                  style={{ width: '100%', fontSize: '0.86rem', fontFamily: 'var(--font-mono)', padding: '10px 12px', borderRadius: '8px' }}
+                  style={{ width: '100%', fontSize: '0.82rem', fontFamily: 'var(--font-mono)', padding: '9px 10px', borderRadius: '8px' }}
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '5px' }}>
+                <label style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
                   Assigned Unit
                 </label>
                 <input
@@ -376,23 +533,23 @@ export default function AuthLandingPage() {
                   value={officerUnit}
                   onChange={(e) => setOfficerUnit(e.target.value)}
                   className="cyber-input"
-                  style={{ width: '100%', fontSize: '0.86rem', padding: '10px 12px', borderRadius: '8px' }}
+                  style={{ width: '100%', fontSize: '0.82rem', padding: '9px 10px', borderRadius: '8px' }}
                 />
               </div>
             </div>
 
             <div>
-              <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '5px' }}>
-                Tactical Security PIN
+              <label style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                Security PIN
               </label>
               <div style={{ position: 'relative' }}>
-                <Lock size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '13px' }} />
+                <Lock size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '11px' }} />
                 <input
                   type="password"
                   value={officerPin}
                   onChange={(e) => setOfficerPin(e.target.value)}
                   className="cyber-input"
-                  style={{ width: '100%', fontSize: '0.9rem', padding: '10px 12px 10px 38px', borderRadius: '8px' }}
+                  style={{ width: '100%', fontSize: '0.86rem', padding: '9px 12px 9px 36px', borderRadius: '8px' }}
                 />
               </div>
             </div>
@@ -401,9 +558,8 @@ export default function AuthLandingPage() {
               type="submit"
               className="cyber-btn"
               style={{
-                fontSize: '0.9rem',
-                padding: '12px',
-                marginTop: '4px',
+                fontSize: '0.86rem',
+                padding: '11px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -414,10 +570,9 @@ export default function AuthLandingPage() {
             >
               <Cpu size={16} />
               <span>Login to Trinetra C2 Center</span>
-              <ArrowRight size={16} />
+              <ArrowRight size={15} />
             </button>
 
-            {/* Direct Quick Bypass Button */}
             <button
               type="button"
               onClick={handleOfficerLogin}
@@ -425,15 +580,15 @@ export default function AuthLandingPage() {
                 background: 'transparent',
                 border: 'none',
                 color: '#c084fc',
-                fontSize: '0.78rem',
+                fontSize: '0.76rem',
                 fontWeight: 700,
                 cursor: 'pointer',
                 textAlign: 'center',
-                marginTop: '4px',
+                marginTop: '2px',
                 textDecoration: 'underline'
               }}
             >
-              Direct Demo Access &rarr; Open Trinetra Command Center
+              Direct Demo Access &rarr; Trinetra C2 Center
             </button>
           </form>
         </div>

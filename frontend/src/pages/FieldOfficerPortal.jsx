@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Shield,
   Bell,
@@ -20,6 +21,7 @@ import {
   Zap,
   BadgeAlert,
   Download,
+  LogOut,
 } from "lucide-react";
 import FieldOfficerPWAModal from "../components/FieldOfficerPWAModal";
 import { usePWAInstall } from "../hooks/usePWAInstall";
@@ -54,7 +56,7 @@ const FIELD_OFFICERS = [
     atmAddress: "Connaught Place Market, Central Delhi",
     bank: "HDFC Bank",
     latitude: 28.6289,
-    longitude: 77.2180,
+    longitude: 77.218,
     shift: "20:00 – 08:00",
     phone: "+91-11-23412345",
     avatar: "PS",
@@ -671,8 +673,9 @@ function DetailModal({ notif, onClose }) {
 
 // ─── Main Portal Dashboard ────────────────────────────────────────────────────
 function PortalDashboard({ officer }) {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState(() =>
-    generateNotifications(officer.district)
+    generateNotifications(officer.district),
   );
   const [selectedDetail, setSelectedDetail] = useState(null);
   const [broadcastMsg, setBroadcastMsg] = useState(null);
@@ -725,9 +728,7 @@ function PortalDashboard({ officer }) {
 
   const handleAcknowledge = (id) => {
     setNotifications((prev) =>
-      prev.map((n) =>
-        n.id === id ? { ...n, ackStatus: "ACKNOWLEDGED" } : n
-      )
+      prev.map((n) => (n.id === id ? { ...n, ackStatus: "ACKNOWLEDGED" } : n)),
     );
     setBroadcastMsg("Alert acknowledged and logged to dispatch command.");
     setTimeout(() => setBroadcastMsg(null), 3500);
@@ -918,6 +919,40 @@ function PortalDashboard({ officer }) {
               Install App
             </button>
 
+            {/* Logout Button */}
+            <button
+              onClick={() => navigate("/auth")}
+              style={{
+                height: "32px",
+                padding: "0 12px",
+                borderRadius: "8px",
+                background: "rgba(255, 56, 92, 0.12)",
+                border: "1px solid rgba(255, 56, 92, 0.35)",
+                color: "#ff7597",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                cursor: "pointer",
+                fontSize: "0.72rem",
+                fontWeight: 700,
+                letterSpacing: "0.02em",
+                whiteSpace: "nowrap",
+                transition: "all 0.2s ease",
+              }}
+              title="Logout and return to authentication gateway"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255, 56, 92, 0.25)";
+                e.currentTarget.style.borderColor = "rgba(255, 56, 92, 0.6)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(255, 56, 92, 0.12)";
+                e.currentTarget.style.borderColor = "rgba(255, 56, 92, 0.35)";
+              }}
+            >
+              <LogOut size={13} />
+              Logout
+            </button>
+
             {/* Functional, Simple & Sober Notification Button */}
             <div style={{ position: "relative" }} ref={notifRef}>
               <button
@@ -936,7 +971,10 @@ function PortalDashboard({ officer }) {
                   alignItems: "center",
                   justifyContent: "center",
                   cursor: "pointer",
-                  color: notifOpen || unreadCount > 0 ? "#00e5ff" : "var(--text-muted)",
+                  color:
+                    notifOpen || unreadCount > 0
+                      ? "#00e5ff"
+                      : "var(--text-muted)",
                   transition: "all 0.18s ease",
                   position: "relative",
                 }}
@@ -1002,7 +1040,13 @@ function PortalDashboard({ officer }) {
                       background: "rgba(0,229,255,0.04)",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                    >
                       <span
                         style={{
                           fontSize: "0.78rem",
@@ -1034,7 +1078,7 @@ function PortalDashboard({ officer }) {
                             prev.map((n) => ({
                               ...n,
                               ackStatus: "ACKNOWLEDGED",
-                            }))
+                            })),
                           );
                           setBroadcastMsg("All alerts acknowledged.");
                           setTimeout(() => setBroadcastMsg(null), 2500);
@@ -1116,7 +1160,9 @@ function PortalDashboard({ officer }) {
                                 style={{
                                   fontSize: "0.75rem",
                                   fontWeight: isUnread ? 700 : 500,
-                                  color: isUnread ? "#fff" : "var(--text-muted)",
+                                  color: isUnread
+                                    ? "#fff"
+                                    : "var(--text-muted)",
                                   whiteSpace: "nowrap",
                                   overflow: "hidden",
                                   textOverflow: "ellipsis",
@@ -1196,7 +1242,9 @@ function PortalDashboard({ officer }) {
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <Shield size={16} color="#00e5ff" />
             <span style={{ fontSize: "0.78rem", color: "#f1f5f9" }}>
-              <strong>Field Officer PWA:</strong> Install this dedicated app on your device for instant live dispatch alerts and fast offline access.
+              <strong>Field Officer PWA:</strong> Install this dedicated app on
+              your device for instant live dispatch alerts and fast offline
+              access.
             </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -1332,7 +1380,9 @@ function PortalDashboard({ officer }) {
               Live Alerts for {officer.district}
             </h3>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+            >
               {notifications.map((notif) => (
                 <NotificationCard
                   key={notif.id}
@@ -1379,7 +1429,11 @@ function PortalDashboard({ officer }) {
               </div>
               <div>
                 <div
-                  style={{ fontWeight: 800, color: "#fff", fontSize: "0.95rem" }}
+                  style={{
+                    fontWeight: 800,
+                    color: "#fff",
+                    fontSize: "0.95rem",
+                  }}
                 >
                   {officer.name}
                 </div>
@@ -1448,113 +1502,6 @@ function PortalDashboard({ officer }) {
                     {value}
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-
-          {/* ATM Status card */}
-          <div className="glass-panel" style={{ padding: "18px" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                marginBottom: "14px",
-              }}
-            >
-              <Zap size={14} color="#ffaa00" />
-              <h3
-                style={{ fontSize: "0.8rem", fontWeight: 800, color: "#fff" }}
-              >
-                Assigned ATM Status
-              </h3>
-            </div>
-
-            <div
-              style={{
-                padding: "14px",
-                borderRadius: "10px",
-                background: "rgba(0,230,118,0.06)",
-                border: "1px solid rgba(0,230,118,0.25)",
-                marginBottom: "12px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  marginBottom: "6px",
-                }}
-              >
-                <span
-                  style={{
-                    width: "8px",
-                    height: "8px",
-                    borderRadius: "50%",
-                    background: "#00e676",
-                    boxShadow: "0 0 8px #00e676",
-                    display: "inline-block",
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: "0.72rem",
-                    fontWeight: 800,
-                    color: "#00e676",
-                  }}
-                >
-                  ATM OPERATIONAL
-                </span>
-              </div>
-              <div
-                style={{ fontWeight: 700, color: "#fff", fontSize: "0.82rem" }}
-              >
-                {officer.assignedAtm}
-              </div>
-              <div
-                style={{
-                  fontSize: "0.72rem",
-                  color: "var(--text-muted)",
-                  marginTop: "4px",
-                }}
-              >
-                {officer.atmAddress}
-              </div>
-            </div>
-
-            {[
-              { label: "Risk Level", value: "HIGH", color: "#ff385c" },
-              { label: "Surveillance Mode", value: "ACTIVE", color: "#00e676" },
-              {
-                label: "Last Patrol",
-                value: "3 mins ago",
-                color: "var(--text-secondary)",
-              },
-              {
-                label: "Cash Loaded",
-                value: "₹14.2 Lakhs",
-                color: "var(--text-secondary)",
-              },
-            ].map(({ label, value, color }) => (
-              <div
-                key={label}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "7px 0",
-                  borderBottom: "1px solid rgba(255,255,255,0.04)",
-                }}
-              >
-                <span
-                  style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}
-                >
-                  {label}
-                </span>
-                <span style={{ fontSize: "0.75rem", fontWeight: 700, color }}>
-                  {value}
-                </span>
               </div>
             ))}
           </div>
@@ -1677,7 +1624,9 @@ export default function FieldOfficerPortal() {
   // Dynamically set the manifest link to Field Officer specific PWA manifest
   useEffect(() => {
     const manifestLink = document.getElementById("app-manifest");
-    const prevHref = manifestLink ? manifestLink.getAttribute("href") : "/manifest.json";
+    const prevHref = manifestLink
+      ? manifestLink.getAttribute("href")
+      : "/manifest.json";
     if (manifestLink) {
       manifestLink.setAttribute("href", "/manifest-officer.json");
     }
