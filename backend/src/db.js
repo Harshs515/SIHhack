@@ -41,7 +41,7 @@ module.exports = {
           atm_id: atm.atm_id || 'N/A',
           atm_address: atm.address || 'Focus Zone',
           atm_risk_tier: atm.risk_tier || 'HIGH',
-          police_station_name: ps.station_name || 'Cyber Police Station',
+          police_station_name: ps.name || 'Cyber Police Station',
           police_contact: ps.contact_number || '1930',
         };
       });

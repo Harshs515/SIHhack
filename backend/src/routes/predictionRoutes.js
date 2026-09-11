@@ -34,7 +34,7 @@ router.get('/hotspots', async (req, res) => {
         city: atm.city || ps.city || 'India',
         state: atm.state || ps.state || 'India',
         atm_risk_tier: atm.risk_tier || 'CRITICAL',
-        police_station_name: ps.station_name || 'Cyber Crime Police Station',
+        police_station_name: ps.name || 'Cyber Crime Police Station',
         police_contact: ps.contact_number || '1930',
         model_version: mr.model_version || 'v1.0.4-spatial',
         algorithm: mr.algorithm || 'ST-DBSCAN + XGBoost',

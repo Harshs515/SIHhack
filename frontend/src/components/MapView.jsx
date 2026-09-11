@@ -311,7 +311,7 @@ export default function MapView({
               <Popup>
                 <div style={{ fontSize: "0.85rem" }}>
                   <strong style={{ color: "#3b82f6" }}>
-                    👮 {ps.station_name || "Cyber Police Station"}
+                    👮 {ps.name || "Cyber Police Station"}
                   </strong>
                   <br />
                   <b>Jurisdiction:</b> {ps.jurisdiction_code || "N/A"}

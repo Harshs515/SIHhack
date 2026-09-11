@@ -35,6 +35,7 @@ export default function NcrpCitizenPortalPage({ complaints = MOCK_COMPLAINTS, on
   const [searchAck, setSearchAck] = useState('');
   const [searchedComplaint, setSearchedComplaint] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -46,6 +47,7 @@ export default function NcrpCitizenPortalPage({ complaints = MOCK_COMPLAINTS, on
     const latitude = city.toLowerCase().includes('mumbai') ? 19.0760 : (city.toLowerCase().includes('bengaluru') ? 12.9716 : (city.toLowerCase().includes('ahmedabad') ? 23.0225 : 28.7041));
     const longitude = city.toLowerCase().includes('mumbai') ? 72.8777 : (city.toLowerCase().includes('bengaluru') ? 77.5946 : (city.toLowerCase().includes('ahmedabad') ? 72.5714 : 77.1025));
     const newComplaint = {
+      acknowledgement_no: `ACK-${Date.now()}`,
       victim_name: victimName || 'Citizen Report',
       victim_phone: victimContact || '+91-98765-43210',
       fraud_category: category,
@@ -62,10 +64,11 @@ export default function NcrpCitizenPortalPage({ complaints = MOCK_COMPLAINTS, on
     };
 
     try {
+      setSubmitError('');
       const response = await submitComplaint({
         ...newComplaint,
         victim_contact: newComplaint.victim_phone,
-        victim_address: city || 'New Delhi',
+        victim_address: city || `${district}, ${state}`,
         latitude: newComplaint.lat,
         longitude: newComplaint.lng,
       });
@@ -76,6 +79,7 @@ export default function NcrpCitizenPortalPage({ complaints = MOCK_COMPLAINTS, on
       setSubmittedComplaint(complaint);
     } catch (err) {
       setSubmittedComplaint(null);
+      setSubmitError(err.message || 'Failed to register complaint through the API.');
     } finally {
       setIsSubmitting(false);
     }
@@ -176,6 +180,18 @@ export default function NcrpCitizenPortalPage({ complaints = MOCK_COMPLAINTS, on
             <span>View on GIS Map</span>
             <ArrowRight size={14} />
           </button>
+        </div>
+      )}
+
+      {submitError && (
+        <div className="glass-panel" style={{
+          padding: '14px 20px',
+          border: '1px solid rgba(255, 56, 92, 0.4)',
+          color: '#ff7597',
+          fontSize: '0.84rem',
+          fontWeight: 700
+        }}>
+          {submitError}
         </div>
       )}
 

@@ -228,10 +228,10 @@ export default function App() {
         getPoliceStations(),
       ]);
 
-      if (compData.data && compData.data.length > 0) setComplaints(compData.data);
-      if (hotData.data && hotData.data.length > 0) setHotspots(hotData.data);
-      if (atmData.data && atmData.data.length > 0) setAtms(atmData.data);
-      if (psData.data && psData.data.length > 0) setPoliceStations(psData.data);
+      if (Array.isArray(compData.data)) setComplaints(compData.data);
+      if (Array.isArray(hotData.data)) setHotspots(hotData.data);
+      if (Array.isArray(atmData.data)) setAtms(atmData.data);
+      if (Array.isArray(psData.data)) setPoliceStations(psData.data);
     } catch (err) {
       console.warn("Using offline mock intelligence cache", err);
       setComplaints(MOCK_COMPLAINTS);
@@ -269,7 +269,19 @@ export default function App() {
   };
 
   const handleAddComplaint = (newComplaint) => {
-    setComplaints((prev) => [newComplaint, ...prev]);
+    if (!newComplaint) return;
+    setComplaints((prev) => {
+      const ack = newComplaint.acknowledgement_no;
+      const withoutDup = ack
+        ? prev.filter((c) => c.acknowledgement_no !== ack)
+        : prev;
+      return [newComplaint, ...withoutDup];
+    });
+    getComplaints()
+      .then((compData) => {
+        if (Array.isArray(compData.data)) setComplaints(compData.data);
+      })
+      .catch(() => {});
   };
 
   return (
