@@ -4,7 +4,15 @@
     <meta charset="UTF-8" />
 
     <!-- ─── PWA Core ─── -->
-    <link rel="manifest" href="/manifest.json" />
+    <script>
+      (function() {
+        var isOfficer = window.location.pathname.startsWith('/field-officer');
+        document.write('<link id="app-manifest" rel="manifest" href="' + (isOfficer ? '/manifest-officer.json' : '/manifest.json') + '" />');
+      })();
+    </script>
+    <noscript>
+      <link id="app-manifest" rel="manifest" href="/manifest.json" />
+    </noscript>
     <meta name="theme-color" content="#00e5ff" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#0a1020" media="(prefers-color-scheme: light)" />
 

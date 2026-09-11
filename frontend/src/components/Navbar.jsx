@@ -11,6 +11,7 @@ import {
   BarChart3,
   Sun,
   Moon,
+  Download,
   ShieldCheck,
   LogIn,
   LogOut,
@@ -92,9 +93,8 @@ export default function Navbar({
           padding: "0 24px",
         }}
       >
-        {/* Logo */}
-        <Link
-          to={isAuthPage ? "/auth" : isCitizenPage ? "/ncrp-portal" : "/dashboard"}
+        {/* Inner container */}
+        <div
           style={{
             height: "56px",
             display: "flex",
@@ -104,7 +104,7 @@ export default function Navbar({
         >
           {/* Logo */}
           <Link
-            to="/dashboard"
+            to={isAuthPage ? "/auth" : isCitizenPage ? "/ncrp-portal" : "/dashboard"}
             style={{
               textDecoration: "none",
               display: "flex",
@@ -133,7 +133,7 @@ export default function Navbar({
             <span
               className="shimmer-text"
               style={{
-                fontSize: "2rem",
+                fontSize: "1.05rem",
                 fontWeight: 900,
                 fontFamily: "var(--font-display)",
                 letterSpacing: "-0.01em",
@@ -146,26 +146,13 @@ export default function Navbar({
           {/* Divider */}
           <div
             style={{
-              fontSize: "0.95rem",
-              fontWeight: 900,
-              fontFamily: "var(--font-display)",
-              letterSpacing: "-0.01em",
+              width: "1px",
+              height: "20px",
+              background: "rgba(255,255,255,0.08)",
+              marginRight: "20px",
+              flexShrink: 0,
             }}
-          >
-            TRINETRA
-          </span>
-        </Link>
-
-        {/* Divider */}
-        <div
-          style={{
-            width: "1px",
-            height: "20px",
-            background: "rgba(255,255,255,0.08)",
-            marginRight: "20px",
-            flexShrink: 0,
-          }}
-        />
+          />
 
         {/* Navigation Section */}
         <nav
