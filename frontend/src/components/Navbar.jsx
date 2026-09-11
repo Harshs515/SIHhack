@@ -243,34 +243,6 @@ export default function Navbar({
           <style>{`nav::-webkit-scrollbar{display:none}`}</style>
         </nav>
 
-          {/* Nav pills — scrollable, hides scrollbar */}
-          <nav
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "1px",
-              flex: 1,
-              overflowX: "auto",
-              scrollbarWidth: "none",
-              msOverflowStyle: "none",
-            }}
-          >
-            {NAV_MODULES.map(({ path, label, icon: Icon }) => (
-              <NavLink
-                key={path}
-                to={path}
-                end={path === "/dashboard"}
-                className={({ isActive }) =>
-                  `nav-pill${isActive ? " active" : ""}`
-                }
-              >
-                <Icon size={13} strokeWidth={1.8} />
-                {label}
-              </NavLink>
-            ))}
-            <style>{`nav::-webkit-scrollbar{display:none}`}</style>
-          </nav>
-
           {/* Right: install btn + theme toggle + live clock */}
           <div
             style={{
