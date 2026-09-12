@@ -411,7 +411,7 @@ export default function GisHeatmapPage({ complaints = [], hotspots = [], atms = 
               <Marker key={`gis-ps-${ps.id || ps.jurisdiction_code || Math.random()}`} position={[lat, lng]} icon={policeStationIcon}>
                 <Popup>
                   <div style={{ fontSize: '0.85rem' }}>
-                    <strong style={{ color: '#3b82f6' }}>👮 {ps.station_name || 'Police Station'}</strong><br/>
+                    <strong style={{ color: '#3b82f6' }}>👮 {ps.name || 'Police Station'}</strong><br/>
                     <b>Jurisdiction:</b> {ps.jurisdiction_code || 'N/A'}<br/>
                     <b>Officer:</b> {ps.officer_in_charge || 'Station In-Charge'}<br/>
                     <b>Contact:</b> {ps.contact_number || '1930'}<br/>

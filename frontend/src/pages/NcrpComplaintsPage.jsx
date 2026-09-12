@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FileSpreadsheet,
@@ -15,6 +15,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { MOCK_COMPLAINTS } from '../data/mockData';
+import { submitComplaint } from '../api/api';
 
 const SAMPLE_PRESETS = [
   {
@@ -67,6 +68,12 @@ export default function NcrpComplaintsPage({ complaints = MOCK_COMPLAINTS, onAdd
   const [extractedEntities, setExtractedEntities] = useState(null);
   const [isProcessingNlp, setIsProcessingNlp] = useState(false);
   const [ingestSuccess, setIngestSuccess] = useState(null);
+  const [ingestError, setIngestError] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setComplaintList(complaints);
+  }, [complaints]);
 
   const handleApplyPreset = (preset) => {
     setVictimName(preset.victim);
@@ -96,11 +103,15 @@ export default function NcrpComplaintsPage({ complaints = MOCK_COMPLAINTS, onAdd
     }, 450);
   };
 
-  const handleSubmitComplaint = (e) => {
+  const handleSubmitComplaint = async (e) => {
     e.preventDefault();
-    const newComp = {
-      id: complaintList.length + 1,
-      acknowledgement_no: `2026MHA00${1290 + complaintList.length}`,
+    setIsSubmitting(true);
+    setIngestError(null);
+
+    const districtName = district.split(',')[0]?.trim() || 'Delhi';
+    const stateName = district.split(',')[1]?.trim() || 'Delhi';
+    const payload = {
+      acknowledgement_no: `ACK-${Date.now()}`,
       victim_name: victimName || 'Citizen Report',
       victim_contact: victimContact || '+91-98765-43210',
       fraud_category: fraudType,
@@ -108,18 +119,26 @@ export default function NcrpComplaintsPage({ complaints = MOCK_COMPLAINTS, onAdd
       incident_timestamp: new Date().toISOString(),
       mule_bank_name: bankMentioned,
       mule_account_no: '39081293812',
-      latitude: 28.7041,
-      longitude: 77.1025,
-      district: district.split(',')[0],
-      state: district.split(',')[1]?.trim() || 'Delhi',
-      status: 'ACTIVE_INTERVENTION'
+      victim_address: district || `${districtName}, ${stateName}`,
+      district: districtName,
+      state: stateName,
+      latitude: district.toLowerCase().includes('mumbai') ? 19.076 : (district.toLowerCase().includes('ahmedabad') ? 23.0225 : 28.7041),
+      longitude: district.toLowerCase().includes('mumbai') ? 72.8777 : (district.toLowerCase().includes('ahmedabad') ? 72.5714 : 77.1025),
     };
 
-    setComplaintList([newComp, ...complaintList]);
-    if (onAddComplaint) onAddComplaint(newComp);
-    setIngestSuccess(`Complaint #${newComp.acknowledgement_no} published to Kafka complaints.raw and triaged to Spatial ML Engine!`);
-    setShowSubmitModal(false);
-    setTimeout(() => setIngestSuccess(null), 4000);
+    try {
+      const response = await submitComplaint(payload);
+      const saved = response.data || payload;
+      setComplaintList((prev) => [saved, ...prev.filter((c) => c.acknowledgement_no !== saved.acknowledgement_no)]);
+      if (onAddComplaint) onAddComplaint(saved);
+      setIngestSuccess(`Complaint #${saved.acknowledgement_no} saved via API and queued for Spatial ML triage.`);
+      setShowSubmitModal(false);
+      setTimeout(() => setIngestSuccess(null), 4000);
+    } catch (err) {
+      setIngestError(err.message || 'Failed to save complaint through the API.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const filtered = complaintList.filter(c =>
@@ -186,6 +205,12 @@ export default function NcrpComplaintsPage({ complaints = MOCK_COMPLAINTS, onAdd
       {ingestSuccess && (
         <div style={{ background: 'rgba(0, 230, 118, 0.15)', border: '1px solid rgba(0, 230, 118, 0.4)', padding: '10px 16px', borderRadius: '8px', color: '#00e676', fontSize: '0.82rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
           <CheckCircle2 size={16} /> {ingestSuccess}
+        </div>
+      )}
+
+      {ingestError && (
+        <div style={{ background: 'rgba(255, 56, 92, 0.12)', border: '1px solid rgba(255, 56, 92, 0.4)', padding: '10px 16px', borderRadius: '8px', color: '#ff7597', fontSize: '0.82rem', fontWeight: 700 }}>
+          {ingestError}
         </div>
       )}
 
@@ -318,7 +343,7 @@ export default function NcrpComplaintsPage({ complaints = MOCK_COMPLAINTS, onAdd
           </thead>
           <tbody>
             {filtered.map((c) => (
-              <tr key={c.id}>
+              <tr key={c.id || c.acknowledgement_no}>
                 <td><strong style={{ color: '#00e5ff' }}>{c.acknowledgement_no}</strong></td>
                 <td>
                   <div style={{ fontWeight: 700, color: '#fff' }}>{c.victim_name}</div>
@@ -437,8 +462,8 @@ export default function NcrpComplaintsPage({ complaints = MOCK_COMPLAINTS, onAdd
                 <button type="button" onClick={() => setShowSubmitModal(false)} className="cyber-btn cyber-btn-secondary">
                   Cancel
                 </button>
-                <button type="submit" className="cyber-btn">
-                  Publish to Kafka Stream
+                <button type="submit" className="cyber-btn" disabled={isSubmitting}>
+                  {isSubmitting ? 'Saving via API...' : 'Submit Complaint'}
                 </button>
               </div>
             </form>
