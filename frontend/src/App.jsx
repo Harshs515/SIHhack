@@ -30,6 +30,8 @@ import {
   getComplaints,
   getHotspots,
   getPoliceStations,
+  getModelRuns,
+  triggerPredictions,
 } from "./api/api";
 
 // Domain Intelligence Mock Data
@@ -40,8 +42,7 @@ import {
   MOCK_POLICE_STATIONS,
 } from "./data/mockData";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+const API = import.meta.env.VITE_API_BASE_URL || 'https://sih2026-backend-k5ru.onrender.com/api';
 
 function AppContent({
   isRunningML,
@@ -49,10 +50,15 @@ function AppContent({
   theme,
   toggleTheme,
   hotspots,
+  setHotspots,
   complaints,
+  setComplaints,
   atms,
   policeStations,
   mlStatus,
+  modelRuns,
+  stats,
+  loadAllData,
   handleAddComplaint,
 }) {
   const location = useLocation();
@@ -78,8 +84,9 @@ function AppContent({
           theme={theme}
           onToggleTheme={toggleTheme}
           activeAlertsCount={
+            stats?.p1_active ||
             (hotspots || []).filter(
-              (h) => h.alert_tier === "P1" || h.atm_risk_tier === "CRITICAL"
+              (h) => h.alert_level === "P1" || h.alert_tier === "P1" || h.atm_risk_tier === "CRITICAL"
             ).length || 2
           }
         />
@@ -104,6 +111,9 @@ function AppContent({
                   isRunningML={isRunningML}
                   onTriggerML={handleTriggerML}
                   mlStatus={mlStatus}
+                  modelRuns={modelRuns}
+                  stats={stats}
+                  onRefreshData={loadAllData}
                 />
               }
             />
@@ -120,6 +130,8 @@ function AppContent({
                   isRunningML={isRunningML}
                   onTriggerML={handleTriggerML}
                   mlStatus={mlStatus}
+                  stats={stats}
+                  onRefreshData={loadAllData}
                 />
               }
             /> */}
@@ -131,8 +143,10 @@ function AppContent({
                 <GisHeatmapPage
                   complaints={complaints}
                   hotspots={hotspots}
+                  setHotspots={setHotspots}
                   atms={atms}
                   policeStations={policeStations}
+                  stats={stats}
                 />
               }
             />
@@ -141,10 +155,28 @@ function AppContent({
             <Route path="/mule-graph" element={<MuleGraphPage />} />
 
             {/* 4. Law Enforcement Agency (LEA) Tactical Dispatch */}
-            <Route path="/lea-interface" element={<LeaInterfacePage />} />
+            <Route
+              path="/lea-interface"
+              element={
+                <LeaInterfacePage
+                  hotspots={hotspots}
+                  setHotspots={setHotspots}
+                  stats={stats}
+                />
+              }
+            />
 
             {/* 5. Real-Time Alerts & Notification Center */}
-            <Route path="/alerts-center" element={<AlertsCenterPage />} />
+            <Route
+              path="/alerts-center"
+              element={
+                <AlertsCenterPage
+                  hotspots={hotspots}
+                  setHotspots={setHotspots}
+                  stats={stats}
+                />
+              }
+            />
 
             {/* 6. NCRP & 1930 Cybercrime Complaint Ingestion Suite */}
             <Route
@@ -183,7 +215,16 @@ function AppContent({
             />
 
             {/* 9. Field Officer Portal */}
-            <Route path="/field-officer" element={<FieldOfficerPortal />} />
+            <Route
+              path="/field-officer"
+              element={
+                <FieldOfficerPortal
+                  hotspots={hotspots}
+                  setHotspots={setHotspots}
+                  stats={stats}
+                />
+              }
+            />
 
             {/* 11. Authentication Gateway (Citizen & Field Officer) */}
             <Route path="/auth" element={<AuthLandingPage />} />
@@ -202,10 +243,12 @@ function AppContent({
 }
 
 export default function App() {
+  const [stats, setStats] = useState({});
   const [complaints, setComplaints] = useState(MOCK_COMPLAINTS);
   const [hotspots, setHotspots] = useState(MOCK_HOTSPOTS);
   const [atms, setAtms] = useState(MOCK_ATMS);
   const [policeStations, setPoliceStations] = useState(MOCK_POLICE_STATIONS);
+  const [modelRuns, setModelRuns] = useState([]);
   const [isRunningML, setIsRunningML] = useState(false);
   const [mlStatus, setMlStatus] = useState("ACTIVE");
   const [theme, setTheme] = useState("dark");
@@ -218,32 +261,51 @@ export default function App() {
     });
   };
 
-  // Fetch real data from backend when available with seamless fallback to mock data
-  const fetchData = async () => {
+  async function loadAllData() {
     try {
-      const [compData, hotData, atmData, psData] = await Promise.all([
-        getComplaints(),
-        getHotspots(),
-        getAtms(),
-        getPoliceStations(),
-      ]);
+      const [statsRes, hotspotsRes, complaintsRes, atmsRes, stationsRes, modelRunsRes] =
+        await Promise.all([
+          fetch(`${API}/predictions/stats`),
+          fetch(`${API}/predictions/hotspots`),
+          fetch(`${API}/complaints?limit=100`),
+          fetch(`${API}/predictions/atms`),
+          fetch(`${API}/predictions/police-stations`),
+          fetch(`${API}/predictions/model-runs`).catch(() => ({ ok: false })),
+        ]);
 
-      if (Array.isArray(compData.data)) setComplaints(compData.data);
-      if (Array.isArray(hotData.data)) setHotspots(hotData.data);
-      if (Array.isArray(atmData.data)) setAtms(atmData.data);
-      if (Array.isArray(psData.data)) setPoliceStations(psData.data);
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        setStats(statsData.data || statsData);
+      }
+      if (hotspotsRes.ok) {
+        const hotspotsData = await hotspotsRes.json();
+        setHotspots(hotspotsData.data || hotspotsData);
+      }
+      if (complaintsRes.ok) {
+        const complaintsData = await complaintsRes.json();
+        setComplaints(complaintsData.data || complaintsData);
+      }
+      if (atmsRes.ok) {
+        const atmsData = await atmsRes.json();
+        setAtms(atmsData.data || atmsData);
+      }
+      if (stationsRes.ok) {
+        const stationsData = await stationsRes.json();
+        setPoliceStations(stationsData.data || stationsData);
+      }
+      if (modelRunsRes && modelRunsRes.ok) {
+        const mrData = await modelRunsRes.json();
+        setModelRuns(mrData.data || mrData);
+      }
     } catch (err) {
-      console.warn("Using offline mock intelligence cache", err);
-      setComplaints(MOCK_COMPLAINTS);
-      setHotspots(MOCK_HOTSPOTS);
-      setAtms(MOCK_ATMS);
-      setPoliceStations(MOCK_POLICE_STATIONS);
+      console.error("[App] Data load failed:", err.message);
+      // Keep previous state — do NOT reset to mock data
     }
-  };
+  }
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 20000);
+    loadAllData();
+    const interval = setInterval(loadAllData, 20000);
     return () => clearInterval(interval);
   }, []);
 
@@ -252,12 +314,10 @@ export default function App() {
     setMlStatus("COMPUTING");
 
     try {
-      await fetch(`${API_BASE_URL}/predictions/trigger`, {
-        method: "POST",
-      });
-
-      await fetchData();
+      await fetch(`${API}/predictions/trigger`, { method: "POST" });
+      await loadAllData();
     } catch (e) {
+      console.warn("ML trigger failed:", e);
       setTimeout(() => {
         setIsRunningML(false);
         setMlStatus("ACTIVE");
@@ -271,15 +331,18 @@ export default function App() {
   const handleAddComplaint = (newComplaint) => {
     if (!newComplaint) return;
     setComplaints((prev) => {
+      const list = Array.isArray(prev) ? prev : [];
       const ack = newComplaint.acknowledgement_no;
       const withoutDup = ack
-        ? prev.filter((c) => c.acknowledgement_no !== ack)
-        : prev;
+        ? list.filter((c) => c.acknowledgement_no !== ack)
+        : list;
       return [newComplaint, ...withoutDup];
     });
-    getComplaints()
+    fetch(`${API}/complaints?limit=100`)
+      .then((res) => res.json())
       .then((compData) => {
-        if (Array.isArray(compData.data)) setComplaints(compData.data);
+        const list = compData.data || compData;
+        if (Array.isArray(list)) setComplaints(list);
       })
       .catch(() => {});
   };
@@ -292,10 +355,15 @@ export default function App() {
         theme={theme}
         toggleTheme={toggleTheme}
         hotspots={hotspots}
+        setHotspots={setHotspots}
         complaints={complaints}
+        setComplaints={setComplaints}
         atms={atms}
         policeStations={policeStations}
         mlStatus={mlStatus}
+        modelRuns={modelRuns}
+        stats={stats}
+        loadAllData={loadAllData}
         handleAddComplaint={handleAddComplaint}
       />
     </BrowserRouter>

@@ -84,7 +84,7 @@ router.get('/', async (req, res) => {
     const { data, error } = await supabase
       .from('cybercrime_complaints')
       .select('*')
-      .order('incident_timestamp', {
+      .order('created_at', {
         ascending: false,
       });
 
@@ -142,9 +142,30 @@ router.get('/:ackNo', async (req, res) => {
       });
     }
 
+    const complaint = mapComplaint(data);
+
+    // Fetch linked/closest active hotspot for tactical intelligence
+    const { data: hotspots } = await supabase
+      .from('predicted_hotspots')
+      .select('*')
+      .in('status', ['ACTIVE', 'ACKNOWLEDGED'])
+      .limit(5);
+
+    const linkedHotspot = (hotspots || []).find(h => 
+      h.district?.toLowerCase() === complaint.district?.toLowerCase() ||
+      h.state?.toLowerCase() === complaint.state?.toLowerCase()
+    ) || (hotspots && hotspots[0]) || null;
+
+    if (linkedHotspot) {
+      complaint.alert_level = linkedHotspot.alert_level || (linkedHotspot.risk_score >= 0.8 ? 'P1' : 'P2');
+      complaint.risk_score = linkedHotspot.risk_score;
+      complaint.actionable_intelligence = linkedHotspot.actionable_intelligence || 'Real-time high risk ATM withdrawal anomaly detected.';
+      complaint.linked_hotspot = linkedHotspot;
+    }
+
     res.json({
       success: true,
-      data: mapComplaint(data),
+      data: complaint,
     });
 
   } catch (error) {

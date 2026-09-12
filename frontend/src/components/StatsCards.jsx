@@ -1,32 +1,45 @@
 import React from "react";
 import { ShieldAlert, MapPin, DollarSign, Cpu } from "lucide-react";
 
+function formatINR(val) {
+  const num = Number(val) || 0;
+  if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)} Cr`;
+  if (num >= 100000) return `₹${(num / 100000).toFixed(2)} Lakhs`;
+  if (num >= 1000) return `₹${(num / 1000).toFixed(1)}k`;
+  return `₹${num.toLocaleString("en-IN")}`;
+}
+
 export default function StatsCards({
   complaintsCount = 0,
   hotspotsCount = 0,
   totalFraudAmount = 0,
   mlStatus = "ACTIVE",
+  stats = {},
 }) {
+  const totalComplaints = stats?.total_complaints != null ? stats.total_complaints : complaintsCount;
+  const totalActive = stats?.total_active != null ? stats.total_active : hotspotsCount;
+  const fraudVolume = stats?.total_fraud_volume != null ? stats.total_fraud_volume : totalFraudAmount;
+
   const cards = [
     {
       title: "1930 Cybercrime Complaints",
-      value: complaintsCount.toLocaleString(),
+      value: totalComplaints.toLocaleString(),
       icon: ShieldAlert,
       color: "#00e5ff",
-      badge: "+12.4% Today",
-      subtitle: "NCRB & 1930 Live Stream Feeds",
+      badge: stats?.today ? `+${stats.today} Today` : "+12.4% Today",
+      subtitle: stats?.today != null ? `${stats.today} complaints today` : "NCRB & 1930 Live Stream Feeds",
     },
     {
       title: "Predicted Cashout Hotspots",
-      value: hotspotsCount,
+      value: totalActive,
       icon: MapPin,
       color: "#ff385c",
-      badge: "Golden Window < 60m",
-      subtitle: "Spatial ST-DBSCAN Risk Zones",
+      badge: stats?.p1_active != null ? `P1: ${stats.p1_active} Critical` : "Golden Window < 60m",
+      subtitle: stats?.p1_active != null ? `P1: ${stats.p1_active} | P2: ${stats.p2_active || 0} | P3: ${stats.p3_active || 0}` : "Spatial ST-DBSCAN Risk Zones",
     },
     {
       title: "Target Fraud Pipeline",
-      value: `₹${(totalFraudAmount / 100000).toFixed(2)} Lakhs`,
+      value: formatINR(fraudVolume),
       icon: DollarSign,
       color: "#00e676",
       badge: "78.4% Intercept Rate",

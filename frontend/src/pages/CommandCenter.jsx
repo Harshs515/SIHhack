@@ -13,6 +13,7 @@ export default function CommandCenter({
   onTriggerML,
   mlStatus = "ACTIVE",
   refreshKey,
+  stats = {},
 }) {
   /* ── Date Range Helper ─────────────────────────────────────── */
   function getCurrentMonthRange() {
@@ -320,6 +321,7 @@ export default function CommandCenter({
         hotspotsCount={filteredHotspots.length}
         totalFraudAmount={totalFraudAmount}
         mlStatus={mlStatus}
+        stats={stats}
       />
 
       {/* Main Grid: Leaflet GIS Map + Alerts Intelligence Panel */}

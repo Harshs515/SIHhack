@@ -28,6 +28,17 @@ import AppLogo from "../components/AppLogo";
 import { usePWAInstall } from "../hooks/usePWAInstall";
 import { FIELD_OFFICERS } from "../data/personnel";
 import { getSession, clearSession } from "../utils/session";
+import { supabase } from "../services/realtimeClient";
+
+const API = import.meta.env.VITE_API_URL || "https://sih2026-backend-k5ru.onrender.com/api";
+
+const navigateToAtm = (lat, lng, bankName) => {
+  if (lat && lng) {
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, "_blank");
+  } else {
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(bankName || "ATM Near Me")}`, "_blank");
+  }
+};
 
 // ─── Mock Notifications (Clean Tactical Law Enforcement Formatting) ───────────
 const generateNotifications = (district) => {
@@ -384,6 +395,7 @@ function NotificationCard({ notif, onAcknowledge, onViewDetails }) {
           </button>
           {isUnread && notif.tier === "P1" && (
             <button
+              onClick={() => navigateToAtm(notif.atm_lat, notif.atm_lng, notif.bank)}
               className="cyber-btn cyber-btn-danger"
               style={{ padding: "6px 14px", fontSize: "0.75rem" }}
             >
@@ -620,11 +632,42 @@ function DetailModal({ notif, onClose }) {
 }
 
 // ─── Main Portal Dashboard ────────────────────────────────────────────────────
-function PortalDashboard({ officer }) {
+function mapHotspotToNotif(h, district) {
+  const isP1 = h.alert_level === "P1";
+  return {
+    id: h.id,
+    tier: h.alert_level || "P1",
+    type: isP1 ? "CRITICAL_ALERT" : "HOTSPOT_ALERT",
+    title: `${isP1 ? "CRITICAL" : "HIGH-RISK"}: ATM Cash Extraction Alert - ${h.atm_bank || "Bank ATM"}`,
+    body:
+      h.actionable_intelligence ||
+      `Active extraction risk at ${h.atm_bank || "ATM"}. Risk Score: ${Math.round((h.risk_score || 0.8) * 100)}%. Immediate patrol recommended.`,
+    district: h.station_name || district || "Rohini",
+    atmId: h.predicted_atm_id || h.atm_id || "ATM-DEL-NW-07",
+    bank: h.atm_bank || "State Bank of India",
+    atm_lat: h.atm_lat,
+    atm_lng: h.atm_lng,
+    timestamp: new Date(h.created_at || Date.now()),
+    ackStatus: h.status === "ACKNOWLEDGED" || h.acknowledged_by ? "ACKNOWLEDGED" : null,
+    fraudCategory: h.fraud_category || "Mule Account Withdrawal",
+    amount: h.amount || 150000,
+    victimContact: "+91-98300-11928",
+    goldenWindow: "38 mins remaining",
+    riskScore: h.risk_score || 0.88,
+  };
+}
+
+function PortalDashboard({ officer, hotspots = [], setHotspots, stats = {} }) {
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState(() =>
-    generateNotifications(officer.district),
-  );
+  const [notifications, setNotifications] = useState(() => {
+    if (hotspots && hotspots.length > 0) {
+      const active = hotspots
+        .filter((h) => (h.alert_level === "P1" || h.alert_level === "P2") && h.status !== "RESOLVED")
+        .map((h) => mapHotspotToNotif(h, officer.district));
+      if (active.length > 0) return active;
+    }
+    return generateNotifications(officer.district);
+  });
   const [selectedDetail, setSelectedDetail] = useState(null);
   const [broadcastMsg, setBroadcastMsg] = useState(null);
   const [showInstallModal, setShowInstallModal] = useState(false);
@@ -647,39 +690,90 @@ function PortalDashboard({ officer }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Simulate real-time new alert
+  // Sync with hotspots prop updates
   useEffect(() => {
-    const t = setTimeout(() => {
-      if (officer.district === "Rohini") {
-        const newAlert = {
-          id: "NOTIF-LIVE-001",
-          tier: "P1",
-          type: "CRITICAL_ALERT",
-          title: "URGENT: Active Mule Account Incident",
-          body: "OTP Phishing Scam filed. Mule account detected. ML model confirms mule ATM 0.2 km from your position. Intercept window: 45 minutes.",
-          district: "Rohini",
-          atmId: "ATM-DEL-NW-07",
-          bank: "Axis Bank",
-          timestamp: new Date(),
-          ackStatus: null,
-          fraudCategory: "OTP Phishing Scam",
-          amount: 98000,
-          victimContact: "+91-97640-33211",
-          goldenWindow: "45 mins remaining",
-          riskScore: 0.84,
-        };
-        setNotifications((prev) => [newAlert, ...prev]);
+    if (hotspots && hotspots.length > 0) {
+      const active = hotspots
+        .filter((h) => (h.alert_level === "P1" || h.alert_level === "P2") && h.status !== "RESOLVED")
+        .map((h) => mapHotspotToNotif(h, officer.district));
+      if (active.length > 0) {
+        setNotifications((prev) => {
+          // preserve any ackStatus overrides
+          const ackedIds = new Set(prev.filter((p) => p.ackStatus === "ACKNOWLEDGED").map((p) => p.id));
+          return active.map((a) => (ackedIds.has(a.id) ? { ...a, ackStatus: "ACKNOWLEDGED" } : a));
+        });
       }
-    }, 8000);
-    return () => clearTimeout(t);
-  }, [officer.district]);
+    }
+  }, [hotspots, officer.district]);
 
-  const handleAcknowledge = (id) => {
+  // Realtime Supabase subscription on predicted_hotspots
+  useEffect(() => {
+    const channel = supabase
+      .channel("field-officer-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "predicted_hotspots" },
+        (payload) => {
+          const newH = payload.new;
+          if (newH && (newH.alert_level === "P1" || newH.alert_level === "P2")) {
+            if (navigator.vibrate) {
+              try {
+                navigator.vibrate([200, 100, 200]);
+              } catch (e) {}
+            }
+            try {
+              const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+              const osc = audioCtx.createOscillator();
+              const gain = audioCtx.createGain();
+              osc.connect(gain);
+              gain.connect(audioCtx.destination);
+              osc.frequency.value = 880;
+              gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+              osc.start();
+              osc.stop(audioCtx.currentTime + 0.5);
+            } catch (e) {}
+
+            const formatted = mapHotspotToNotif(newH, officer.district);
+            setNotifications((prev) => [formatted, ...prev.filter((n) => n.id !== formatted.id)]);
+            if (setHotspots) {
+              setHotspots((prev) => [newH, ...prev.filter((h) => h.id !== newH.id)]);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [officer.district, setHotspots]);
+
+  const handleAcknowledge = async (id) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, ackStatus: "ACKNOWLEDGED" } : n)),
     );
+    if (setHotspots) {
+      setHotspots((prev) =>
+        prev.map((h) =>
+          h.id === id
+            ? { ...h, status: "ACKNOWLEDGED", acknowledged_by: officer.name || "Field Officer" }
+            : h
+        )
+      );
+    }
     setBroadcastMsg("Alert acknowledged and logged to dispatch command.");
     setTimeout(() => setBroadcastMsg(null), 3500);
+
+    try {
+      await fetch(`${API}/predictions/${id}/acknowledge`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ officer_name: officer.name || "Field Officer" }),
+      });
+    } catch (err) {
+      console.error("Failed to acknowledge hotspot:", err);
+    }
   };
 
   return (
@@ -1555,7 +1649,7 @@ function PortalDashboard({ officer }) {
 }
 
 // ─── Root Export (Direct View Without Profile Selection / Auth Gate) ──────────
-export default function FieldOfficerPortal() {
+export default function FieldOfficerPortal({ hotspots, setHotspots, stats }) {
   const session = getSession();
   const matchedOfficer =
     session?.role === "field_officer" && session.profile
@@ -1580,5 +1674,12 @@ export default function FieldOfficerPortal() {
     };
   }, []);
 
-  return <PortalDashboard officer={currentOfficer} />;
+  return (
+    <PortalDashboard
+      officer={currentOfficer}
+      hotspots={hotspots}
+      setHotspots={setHotspots}
+      stats={stats}
+    />
+  );
 }
