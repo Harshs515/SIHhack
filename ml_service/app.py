@@ -76,7 +76,7 @@ def run_analytics_pipeline():
         cursor.execute("""
             SELECT id, ST_Y(geom::geometry) AS latitude, ST_X(geom::geometry) AS longitude, fraud_amount, incident_timestamp 
             FROM cybercrime_complaints 
-            WHERE status = 'UNDER_INVESTIGATION';
+            WHERE status IN ('UNDER_INVESTIGATION', 'PROCESSED', 'ACTIVE') OR status IS NOT NULL;
         """)
         complaints = cursor.fetchall()
 

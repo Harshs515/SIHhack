@@ -478,7 +478,9 @@ export default function DashboardPage({
   isRunningML = false,
   onTriggerML,
   mlStatus = "ACTIVE",
+  modelRuns = [],
   onRefreshData,
+  stats = {},
 }) {
   /* ──────────────────────────────────────────────────────────────
      Refresh / Sync State
@@ -489,6 +491,12 @@ export default function DashboardPage({
   const [isSyncing, setIsSyncing] = useState(false);
 
   const [timeAgoText, setTimeAgoText] = useState("Just now");
+
+  /*
+   * Derive the latest model run for the Model Health Bar.
+   * Falls back to MOCK_MODEL_METRICS when no live run data exists.
+   */
+  const latestRun = modelRuns && modelRuns.length > 0 ? modelRuns[0] : null;
 
   /*
    * refreshKey is used to notify child components
@@ -720,6 +728,7 @@ export default function DashboardPage({
         onTriggerML={onTriggerML}
         mlStatus={mlStatus}
         refreshKey={refreshKey}
+        stats={stats}
       />
 
       {/* ─────────────────────────────────────────────────────────
@@ -767,7 +776,7 @@ export default function DashboardPage({
               fontWeight: 700,
             }}
           >
-            {MOCK_MODEL_METRICS.version}
+            {latestRun?.model_version || MOCK_MODEL_METRICS.version}
           </span>
         </div>
 
@@ -776,18 +785,35 @@ export default function DashboardPage({
         {[
           [
             "Accuracy",
-            `${(MOCK_MODEL_METRICS.overall_accuracy * 100).toFixed(1)}%`,
+            latestRun?.accuracy
+              ? `${(latestRun.accuracy * 100).toFixed(1)}%`
+              : `${(MOCK_MODEL_METRICS.overall_accuracy * 100).toFixed(1)}%`,
           ],
 
-          ["Precision", `${(MOCK_MODEL_METRICS.precision * 100).toFixed(1)}%`],
+          [
+            "Precision",
+            latestRun?.precision
+              ? `${(latestRun.precision * 100).toFixed(1)}%`
+              : `${(MOCK_MODEL_METRICS.precision * 100).toFixed(1)}%`,
+          ],
 
-          ["Recall", `${(MOCK_MODEL_METRICS.recall * 100).toFixed(1)}%`],
+          [
+            "Recall",
+            latestRun?.recall
+              ? `${(latestRun.recall * 100).toFixed(1)}%`
+              : `${(MOCK_MODEL_METRICS.recall * 100).toFixed(1)}%`,
+          ],
 
-          ["F1", `${(MOCK_MODEL_METRICS.f1_score * 100).toFixed(1)}%`],
+          ["Algorithm", latestRun?.algorithm || MOCK_MODEL_METRICS.golden_hour_window],
 
-          ["Clusters", MOCK_MODEL_METRICS.clusters_identified],
+          ["Clusters", latestRun?.clusters_identified ?? MOCK_MODEL_METRICS.clusters_identified],
 
-          ["Window", MOCK_MODEL_METRICS.golden_hour_window],
+          [
+            "Run At",
+            latestRun?.run_at
+              ? new Date(latestRun.run_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+              : MOCK_MODEL_METRICS.golden_hour_window,
+          ],
         ].map(([k, v]) => (
           <div
             key={k}

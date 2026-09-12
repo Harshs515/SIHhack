@@ -1,4 +1,18 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+export function getApiBaseUrl() {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  if (typeof window !== 'undefined' && window.location) {
+    // Relative '/api' leverages Vite proxy (or reverse proxy), working on localhost and all LAN/mobile devices
+    return '/api';
+  }
+  return 'http://localhost:5000/api';
+}
+
+export const API_BASE_URL = getApiBaseUrl();
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, options);
@@ -51,10 +65,26 @@ export function getPoliceStations() {
   return request('/predictions/police-stations');
 }
 
+export function getModelRuns() {
+  return request('/predictions/model-runs');
+}
+
+export function triggerPredictions() {
+  return request('/predictions/trigger', {
+    method: 'POST',
+  });
+}
+
 export function acknowledgeAlert(id, officerName) {
   return request(`/predictions/${encodeURIComponent(id)}/acknowledge`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ officerName }),
+  });
+}
+
+export function resolveAlert(id) {
+  return request(`/predictions/${encodeURIComponent(id)}/resolve`, {
+    method: 'PATCH',
   });
 }

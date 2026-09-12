@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { MapPin, Layers, Filter, Shield, Clock, AlertTriangle, Crosshair, CheckSquare, Square } from 'lucide-react';
+import { supabase } from '../services/realtimeClient';
+
+const API = import.meta.env.VITE_API_URL || "https://sih2026-backend-k5ru.onrender.com/api";
 
 const complaintIcon = L.divIcon({
   className: 'custom-leaflet-icon',
@@ -40,6 +43,20 @@ const STATE_CENTERS = {
   Gujarat: { center: [23.0225, 72.5714], zoom: 10 },
 };
 
+function getHotspotLat(h) {
+  return parseFloat(h.atm_lat || h.center_latitude || 0);
+}
+
+function getHotspotLng(h) {
+  return parseFloat(h.atm_lng || h.center_longitude || 0);
+}
+
+function getTierStyle(tier) {
+  if (tier === 'P1') return { color: '#DC2626', fillColor: '#DC2626', fillOpacity: 0.28, weight: 2 };
+  if (tier === 'P2') return { color: '#F59E0B', fillColor: '#F59E0B', fillOpacity: 0.22, weight: 2 };
+  return { color: '#10B981', fillColor: '#10B981', fillOpacity: 0.15, weight: 1.5 };
+}
+
 function MapCenterController({
   selectedState,
   validComplaints,
@@ -54,9 +71,9 @@ function MapCenterController({
 
     const allPoints = [];
     (validHotspots || []).forEach((h) => {
-      const lat = parseFloat(h.center_latitude);
-      const lng = parseFloat(h.center_longitude);
-      if (!isNaN(lat) && !isNaN(lng)) allPoints.push([lat, lng]);
+      const lat = getHotspotLat(h);
+      const lng = getHotspotLng(h);
+      if (!isNaN(lat) && !isNaN(lng) && lat !== 0) allPoints.push([lat, lng]);
     });
     (validComplaints || []).forEach((c) => {
       const lat = parseFloat(c.latitude);
@@ -100,12 +117,59 @@ function MapCenterController({
   return null;
 }
 
-export default function GisHeatmapPage({ complaints = [], hotspots = [], atms = [], policeStations = [] }) {
+export default function GisHeatmapPage({ complaints = [], hotspots = [], atms = [], policeStations = [], setHotspots, stats = {} }) {
+  const [localHotspots, setLocalHotspots] = useState(hotspots);
   const [selectedState, setSelectedState] = useState('ALL');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [selectedTimeWindow, setSelectedTimeWindow] = useState('60');
   const [radiusMultiplier, setRadiusMultiplier] = useState(1);
   const [selectedCluster, setSelectedCluster] = useState(null);
+
+  // Sync localHotspots with hotspots prop
+  useEffect(() => {
+    if (hotspots && hotspots.length > 0) {
+      setLocalHotspots(hotspots);
+    }
+  }, [hotspots]);
+
+  // Realtime Supabase subscription on gis-heatmap-realtime
+  useEffect(() => {
+    const channel = supabase
+      .channel("gis-heatmap-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "predicted_hotspots" },
+        (payload) => {
+          if (payload.new) {
+            setLocalHotspots((prev) => [payload.new, ...prev.filter((h) => h.id !== payload.new.id)]);
+            if (setHotspots) {
+              setHotspots((prev) => [payload.new, ...prev.filter((h) => h.id !== payload.new.id)]);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [setHotspots]);
+
+  const handleAcknowledge = async (id) => {
+    setLocalHotspots((prev) => prev.map((h) => (h.id === id ? { ...h, status: 'ACKNOWLEDGED' } : h)));
+    if (setHotspots) {
+      setHotspots((prev) => prev.map((h) => (h.id === id ? { ...h, status: 'ACKNOWLEDGED' } : h)));
+    }
+    try {
+      await fetch(`${API}/predictions/${id}/acknowledge`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ officer_name: 'GIS Tactical Operator' }),
+      });
+    } catch (err) {
+      console.error('Failed to acknowledge hotspot:', err);
+    }
+  };
 
   // Layer toggles
   const [showHotspots, setShowHotspots] = useState(true);
@@ -114,26 +178,28 @@ export default function GisHeatmapPage({ complaints = [], hotspots = [], atms = 
   const [showComplaints, setShowComplaints] = useState(true);
 
   // Safe Filters
-  const filteredHotspots = (hotspots || []).filter(h => {
-    if (!h || isNaN(parseFloat(h.center_latitude)) || isNaN(parseFloat(h.center_longitude))) return false;
+  const filteredHotspots = (localHotspots || []).filter((h) => {
+    const lat = getHotspotLat(h);
+    const lng = getHotspotLng(h);
+    if (!h || isNaN(lat) || isNaN(lng) || lat === 0) return false;
     if (selectedState !== 'ALL' && (h.state || '').toLowerCase() !== selectedState.toLowerCase()) return false;
     return true;
   });
 
-  const filteredComplaints = (complaints || []).filter(c => {
+  const filteredComplaints = (complaints || []).filter((c) => {
     if (!c || isNaN(parseFloat(c.latitude)) || isNaN(parseFloat(c.longitude))) return false;
     if (selectedState !== 'ALL' && (c.state || '').toLowerCase() !== selectedState.toLowerCase()) return false;
     if (selectedCategory !== 'ALL' && !(c.fraud_category || '').toLowerCase().includes(selectedCategory.toLowerCase())) return false;
     return true;
   });
 
-  const filteredAtms = (atms || []).filter(a => {
+  const filteredAtms = (atms || []).filter((a) => {
     if (!a || isNaN(parseFloat(a.latitude)) || isNaN(parseFloat(a.longitude))) return false;
     if (selectedState !== 'ALL' && (a.state || '').toLowerCase() !== selectedState.toLowerCase()) return false;
     return true;
   });
 
-  const filteredPolice = (policeStations || []).filter(p => {
+  const filteredPolice = (policeStations || []).filter((p) => {
     if (!p || isNaN(parseFloat(p.latitude)) || isNaN(parseFloat(p.longitude))) return false;
     if (selectedState !== 'ALL' && (p.state || '').toLowerCase() !== selectedState.toLowerCase()) return false;
     return true;
@@ -424,21 +490,19 @@ export default function GisHeatmapPage({ complaints = [], hotspots = [], atms = 
 
           {/* Hotspots & Intercept Radiuses */}
           {showHotspots && filteredHotspots.map((h) => {
-            const centerLat = parseFloat(h.center_latitude);
-            const centerLng = parseFloat(h.center_longitude);
-            const radius = parseFloat(h.radius_meters || 1500) * radiusMultiplier;
+            const centerLat = getHotspotLat(h);
+            const centerLng = getHotspotLng(h);
+            const radius = parseFloat(h.radius_meters || 1000) * radiusMultiplier;
+            const tier = h.alert_level || h.alert_tier || 'P1';
+            const style = getTierStyle(tier);
+            const isAcked = h.status === 'ACKNOWLEDGED' || Boolean(h.acknowledged_by);
 
             return (
               <React.Fragment key={`gis-hotspot-${h.id || h.cluster_id || Math.random()}`}>
                 <Circle
                   center={[centerLat, centerLng]}
                   radius={radius}
-                  pathOptions={{
-                    color: '#ff4757',
-                    fillColor: '#ff4757',
-                    fillOpacity: 0.28,
-                    weight: 2
-                  }}
+                  pathOptions={style}
                   eventHandlers={{
                     click: () => setSelectedCluster(h)
                   }}
@@ -453,22 +517,43 @@ export default function GisHeatmapPage({ complaints = [], hotspots = [], atms = 
                   <Popup>
                     <div style={{ fontSize: '0.86rem', maxWidth: '320px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                        <span className="pulse-badge danger">
-                          <span className="pulse-dot"></span> {h.alert_tier || 'P1'} FORECAST
+                        <span className={`pulse-badge ${tier === 'P1' ? 'danger' : tier === 'P2' ? 'warning' : 'success'}`}>
+                          <span className="pulse-dot"></span> {tier} FORECAST
                         </span>
                         <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
-                          Cluster: {h.cluster_id || 'Active Zone'}
+                          Cluster: {h.cluster_id || (h.id ? String(h.id).slice(0, 8) : 'Active Zone')}
                         </span>
                       </div>
-                      <strong>Target Cashout ATM:</strong> {h.bank_name || 'Bank ATM'} ({h.atm_id || 'Target'})<br/>
-                      <b>Location:</b> {h.atm_address || 'Jurisdiction Target'}<br/>
+                      <strong>Target Cashout ATM:</strong> {h.atm_bank || h.bank_name || 'Bank ATM'} ({h.predicted_atm_id || h.atm_id || 'Target'})<br/>
+                      <b>Location:</b> {h.atm_address || h.address || 'Jurisdiction Target'}<br/>
                       <b>Withdrawal Probability:</b> {(parseFloat(h.risk_score || 0.85) * 100).toFixed(1)}%<br/>
-                      <b>Cluster Volume:</b> ₹{parseFloat(h.total_fraud_volume || 0).toLocaleString()}<br/>
+                      <b>Cluster Volume:</b> ₹{parseFloat(h.amount || h.total_fraud_volume || 0).toLocaleString()}<br/>
                       <b>Golden Hour Window:</b> {h.time_window || 'Next 45-60 min'}<br/>
                       <hr style={{ margin: '8px 0', borderColor: 'rgba(255,255,255,0.1)' }} />
-                      <p style={{ fontSize: '0.76rem', color: '#cbd5e1', lineHeight: '1.4' }}>
+                      <p style={{ fontSize: '0.76rem', color: '#cbd5e1', lineHeight: '1.4', margin: '0 0 8px 0' }}>
                         {h.actionable_intelligence || 'Proactive police patrol deployment recommended.'}
                       </p>
+                      {!isAcked ? (
+                        <button
+                          onClick={() => handleAcknowledge(h.id)}
+                          style={{
+                            padding: '5px 12px',
+                            fontSize: '0.74rem',
+                            background: '#ff4757',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontWeight: 700,
+                          }}
+                        >
+                          Acknowledge & Vector Patrol
+                        </button>
+                      ) : (
+                        <div style={{ fontSize: '0.74rem', color: '#00e676', fontWeight: 700 }}>
+                          ✓ Acknowledged & Dispatched
+                        </div>
+                      )}
                     </div>
                   </Popup>
                 </Marker>
