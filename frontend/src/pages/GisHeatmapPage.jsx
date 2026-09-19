@@ -51,6 +51,12 @@ function getHotspotLng(h) {
   return parseFloat(h.atm_lng || h.center_longitude || 0);
 }
 
+function unwrapHotspots(value) {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.data)) return value.data;
+  return [];
+}
+
 function getTierStyle(tier) {
   if (tier === 'P1') return { color: '#DC2626', fillColor: '#DC2626', fillOpacity: 0.28, weight: 2 };
   if (tier === 'P2') return { color: '#F59E0B', fillColor: '#F59E0B', fillOpacity: 0.22, weight: 2 };
@@ -118,7 +124,7 @@ function MapCenterController({
 }
 
 export default function GisHeatmapPage({ complaints = [], hotspots = [], atms = [], policeStations = [], setHotspots, stats = {} }) {
-  const [localHotspots, setLocalHotspots] = useState(hotspots);
+  const [localHotspots, setLocalHotspots] = useState(() => unwrapHotspots(hotspots));
   const [selectedState, setSelectedState] = useState('ALL');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [selectedTimeWindow, setSelectedTimeWindow] = useState('60');
@@ -127,9 +133,7 @@ export default function GisHeatmapPage({ complaints = [], hotspots = [], atms = 
 
   // Sync localHotspots with hotspots prop
   useEffect(() => {
-    if (hotspots && hotspots.length > 0) {
-      setLocalHotspots(hotspots);
-    }
+    setLocalHotspots(unwrapHotspots(hotspots));
   }, [hotspots]);
 
   // Realtime Supabase subscription on gis-heatmap-realtime
@@ -140,34 +144,54 @@ export default function GisHeatmapPage({ complaints = [], hotspots = [], atms = 
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "predicted_hotspots" },
         (payload) => {
-          if (payload.new) {
-            setLocalHotspots((prev) => [payload.new, ...prev.filter((h) => h.id !== payload.new.id)]);
-            if (setHotspots) {
-              setHotspots((prev) => [payload.new, ...prev.filter((h) => h.id !== payload.new.id)]);
-            }
+          const newHotspot = payload.new;
+          if (!newHotspot) return;
+
+          setLocalHotspots((prev) => {
+            const current = unwrapHotspots(prev);
+            if (current.some((h) => h.id === newHotspot.id)) return current;
+            return [newHotspot, ...current];
+          });
+          if (setHotspots) {
+            setHotspots((prev) => {
+              const current = unwrapHotspots(prev);
+              if (current.some((h) => h.id === newHotspot.id)) return prev;
+              return [newHotspot, ...current];
+            });
           }
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      try {
+        supabase.removeChannel(channel);
+      } catch (err) {
+        console.error('Failed to remove GIS realtime channel:', err);
+      }
     };
   }, [setHotspots]);
 
   const handleAcknowledge = async (id) => {
-    setLocalHotspots((prev) => prev.map((h) => (h.id === id ? { ...h, status: 'ACKNOWLEDGED' } : h)));
+    const previousLocalHotspots = localHotspots;
+    const previousHotspots = unwrapHotspots(hotspots);
+    const updateStatus = (list) => list.map((h) => (h.id === id ? { ...h, status: 'ACKNOWLEDGED' } : h));
+
+    setLocalHotspots(updateStatus(previousLocalHotspots));
     if (setHotspots) {
-      setHotspots((prev) => prev.map((h) => (h.id === id ? { ...h, status: 'ACKNOWLEDGED' } : h)));
+      setHotspots((prev) => updateStatus(unwrapHotspots(prev)));
     }
     try {
-      await fetch(`${API}/predictions/${id}/acknowledge`, {
+      const response = await fetch(`${API}/predictions/${id}/acknowledge`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ officer_name: 'GIS Tactical Operator' }),
       });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
     } catch (err) {
       console.error('Failed to acknowledge hotspot:', err);
+      setLocalHotspots(previousLocalHotspots);
+      if (setHotspots) setHotspots(previousHotspots);
     }
   };
 

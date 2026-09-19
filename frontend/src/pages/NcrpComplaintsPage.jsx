@@ -3,29 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import {
   FileSpreadsheet,
   PlusCircle,
-  Sparkles,
   Search,
   CheckCircle2,
-  Clock,
-  Database,
-  Tag,
-  Zap,
-  ArrowRight,
   ShieldCheck,
   ExternalLink,
   Filter,
-  AlertTriangle,
-  MapPin,
-  Building2,
-  X
+  X,
+  Zap
 } from 'lucide-react';
-import { MOCK_COMPLAINTS } from '../data/mockData';
-import { submitComplaint, trackComplaint } from '../api/api';
+import { submitComplaint, trackComplaint, getComplaints } from '../api/api';
 
 const SAMPLE_PRESETS = [
   {
     name: 'Digital Arrest CBI Scam (₹8.5L, Delhi)',
-    text: 'I received an urgent call on WhatsApp from an individual claiming to be a CBI Officer in Mumbai. He claimed my Aadhaar was linked to a money laundering case and coerced me to transfer ₹8,50,000 to an SBI verification account in Rohini.',
     victim: 'Rajesh Sharma',
     contact: '+91-98112-44120',
     type: 'Digital Arrest Scam',
@@ -35,7 +25,6 @@ const SAMPLE_PRESETS = [
   },
   {
     name: 'Stock Trading WhatsApp Group Scam (₹12.5L, Mumbai)',
-    text: 'I was added to a VIP Institutional Trading group promising 400% IPO profits. After depositing ₹12,50,000 into an ICICI Bank mule account in Andheri, the app froze withdrawals and demanded a 20% release fee.',
     victim: 'Vikram Mehta',
     contact: '+91-98201-99882',
     type: 'Stock Market / Trading Scam',
@@ -45,7 +34,6 @@ const SAMPLE_PRESETS = [
   },
   {
     name: 'Electricity KYC Phishing (₹75k, Ahmedabad)',
-    text: 'Received an SMS saying power supply would be disconnected tonight. Called the provided number and downloaded an APK file which transferred ₹75,000 to a Bank of Baroda account.',
     victim: 'Dharmesh Patel',
     contact: '+91-98240-55443',
     type: 'KYC Update / Electricity Scam',
@@ -55,37 +43,77 @@ const SAMPLE_PRESETS = [
   }
 ];
 
-export default function NcrpComplaintsPage({ complaints = MOCK_COMPLAINTS, onAddComplaint }) {
+export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }) {
   const navigate = useNavigate();
-  const initialComplaints = Array.isArray(complaints) ? complaints : complaints?.data || MOCK_COMPLAINTS;
-  const [complaintList, setComplaintList] = useState(initialComplaints);
+  const [complaintList, setComplaintList] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [isLoadingComplaints, setIsLoadingComplaints] = useState(false);
+  const [isLoadingInitial, setIsLoadingInitial] = useState(true);
 
   // Form input state
-  const [victimName, setVictimName] = useState(SAMPLE_PRESETS[0].victim);
-  const [victimContact, setVictimContact] = useState(SAMPLE_PRESETS[0].contact);
-  const [fraudType, setFraudType] = useState(SAMPLE_PRESETS[0].type);
-  const [amount, setAmount] = useState(SAMPLE_PRESETS[0].amount);
-  const [bankMentioned, setBankMentioned] = useState(SAMPLE_PRESETS[0].bank);
-  const [district, setDistrict] = useState(SAMPLE_PRESETS[0].district);
-  const [complaintText, setComplaintText] = useState(SAMPLE_PRESETS[0].text);
+  const [victimName, setVictimName] = useState('');
+  const [victimContact, setVictimContact] = useState('');
+  const [fraudType, setFraudType] = useState('Digital Arrest Scam');
+  const [amount, setAmount] = useState('');
+  const [bankMentioned, setBankMentioned] = useState('State Bank of India');
+  const [district, setDistrict] = useState('');
+  const [complaintText, setComplaintText] = useState('');
 
-  const [extractedEntities, setExtractedEntities] = useState(null);
-  const [isProcessingNlp, setIsProcessingNlp] = useState(false);
   const [ingestSuccess, setIngestSuccess] = useState(null);
   const [ingestError, setIngestError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const list = Array.isArray(complaints) ? complaints : complaints?.data || [];
-    if (list.length > 0) {
-      setComplaintList(list);
+    const fetchComplaints = async () => {
+      setIsLoadingInitial(true);
+      try {
+        const response = await getComplaints({ limit: 100 });
+        const data = response.data || response;
+        setComplaintList(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Failed to fetch complaints:', error);
+        setComplaintList([]);
+      } finally {
+        setIsLoadingInitial(false);
+      }
+    };
+
+    fetchComplaints();
+  }, []);
+
+  const handleSearch = async (term) => {
+    setSearchTerm(term);
+    if (!term.trim()) {
+      setIsLoadingComplaints(true);
+      try {
+        const response = await getComplaints({ limit: 100 });
+        const data = response.data || response;
+        setComplaintList(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Failed to fetch complaints:', error);
+        setComplaintList([]);
+      } finally {
+        setIsLoadingComplaints(false);
+      }
+      return;
     }
-  }, [complaints]);
+
+    setIsLoadingComplaints(true);
+    try {
+      const response = await getComplaints({ search: term });
+      const data = response.data || response;
+      setComplaintList(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Search failed:', error);
+      setComplaintList([]);
+    } finally {
+      setIsLoadingComplaints(false);
+    }
+  };
 
   const handleApplyPreset = (preset) => {
     setVictimName(preset.victim);
@@ -94,26 +122,9 @@ export default function NcrpComplaintsPage({ complaints = MOCK_COMPLAINTS, onAdd
     setAmount(preset.amount);
     setBankMentioned(preset.bank);
     setDistrict(preset.district);
-    setComplaintText(preset.text);
-    triggerNlpForText(preset);
   };
 
-  const triggerNlpForText = (preset) => {
-    setIsProcessingNlp(true);
-    setTimeout(() => {
-      setExtractedEntities({
-        victim_city: preset.district.split(',')[1]?.trim() || 'Delhi NCR',
-        district_code: preset.district.split(',')[0],
-        amount_extracted: `₹${parseFloat(preset.amount).toLocaleString()}`,
-        amount_band: parseFloat(preset.amount) > 500000 ? 'CRITICAL (> ₹5L)' : 'HIGH (₹1L - ₹5L)',
-        fraud_category: preset.type,
-        bank_name_extracted: preset.bank,
-        time_elapsed: '18 mins ago (Golden Hour Active)',
-        confidence_score: 0.968
-      });
-      setIsProcessingNlp(false);
-    }, 450);
-  };
+
 
   const handleSubmitComplaint = async (e) => {
     e.preventDefault();
@@ -172,19 +183,9 @@ export default function NcrpComplaintsPage({ complaints = MOCK_COMPLAINTS, onAdd
   };
 
   const filtered = (Array.isArray(complaintList) ? complaintList : []).filter((c) => {
-    const matchesSearch =
-      !searchTerm ||
-      c.acknowledgement_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.victim_bank?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.district?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.fraud_category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.victim_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.mule_bank_name?.toLowerCase().includes(searchTerm.toLowerCase());
-
     const cStatus = c.status || 'UNDER_INVESTIGATION';
     const matchesStatus = selectedStatus === 'ALL' || cStatus.toUpperCase() === selectedStatus.toUpperCase();
-
-    return matchesSearch && matchesStatus;
+    return matchesStatus;
   });
 
   return (
@@ -253,101 +254,6 @@ export default function NcrpComplaintsPage({ complaints = MOCK_COMPLAINTS, onAdd
         </div>
       )}
 
-      {/* Interactive NLP Parser Demo & Preset Selector */}
-      <div className="glass-panel" style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-          <div>
-            <h3 style={{ fontSize: '0.96rem', fontWeight: 800, color: '#00e5ff', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Sparkles size={16} /> SparkNLP Structured Streaming Entity Extractor
-            </h3>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-              Test how raw unstructured complaint text is instantly converted into structured geospatial feature vectors.
-            </p>
-          </div>
-
-          {/* Quick Preset Buttons */}
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', alignSelf: 'center', marginRight: '4px' }}>
-              Try Presets:
-            </span>
-            {SAMPLE_PRESETS.map((preset, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleApplyPreset(preset)}
-                className="interactive-chip"
-                style={{ fontSize: '0.7rem', padding: '4px 10px' }}
-              >
-                <Zap size={11} color="#00e5ff" /> {preset.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          <div>
-            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
-              Citizen Complaint Narrative (Unstructured Text):
-            </label>
-            <textarea
-              rows={4}
-              value={complaintText}
-              onChange={(e) => setComplaintText(e.target.value)}
-              className="cyber-input"
-              style={{ width: '100%', resize: 'none', fontSize: '0.78rem', lineHeight: '1.45' }}
-            />
-            <button
-              onClick={() => triggerNlpForText({ text: complaintText, district, amount, type: fraudType, bank: bankMentioned })}
-              disabled={isProcessingNlp}
-              className="cyber-btn cyber-btn-secondary"
-              style={{ marginTop: '8px', fontSize: '0.75rem' }}
-            >
-              <Sparkles size={13} color="#00e5ff" />
-              {isProcessingNlp ? 'Extracting NER Entities...' : 'Run SparkNLP NER Extraction'}
-            </button>
-          </div>
-
-          <div style={{ background: 'rgba(0, 0, 0, 0.35)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-glass)' }}>
-            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#00e5ff', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Parsed Geospatial & Risk Vectors
-            </span>
-
-            {extractedEntities ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px', fontSize: '0.75rem' }}>
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '6px 8px', borderRadius: '6px' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.66rem' }}>VICTIM LOCATION</span>
-                  <div style={{ fontWeight: 700, color: '#fff' }}>{extractedEntities.victim_city} ({extractedEntities.district_code})</div>
-                </div>
-
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '6px 8px', borderRadius: '6px' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.66rem' }}>EXTRACTED AMOUNT</span>
-                  <div style={{ fontWeight: 800, color: '#00e676' }}>{extractedEntities.amount_extracted}</div>
-                </div>
-
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '6px 8px', borderRadius: '6px' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.66rem' }}>FRAUD TYPOLOGY</span>
-                  <div style={{ fontWeight: 700, color: '#ff385c' }}>{extractedEntities.fraud_category}</div>
-                </div>
-
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '6px 8px', borderRadius: '6px' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.66rem' }}>MULE BENEFICIARY</span>
-                  <div style={{ fontWeight: 700, color: '#ffaa00' }}>{extractedEntities.bank_name_extracted}</div>
-                </div>
-
-                <div style={{ background: 'rgba(0, 229, 255, 0.08)', padding: '6px 8px', borderRadius: '6px', gridColumn: '1 / -1', border: '1px solid rgba(0, 229, 255, 0.2)' }}>
-                  <span style={{ color: '#00e5ff', fontSize: '0.68rem', fontWeight: 700 }}>
-                    ⚡ MLOps Feature Vector Ready: Confidence {extractedEntities.confidence_score * 100}% • {extractedEntities.time_elapsed}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '20px', textAlign: 'center' }}>
-                Click "Run SparkNLP NER Extraction" or select a preset above to inspect parsed vector tokens.
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
       {/* Complaints Data Table */}
       <div className="glass-panel" style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
@@ -377,10 +283,15 @@ export default function NcrpComplaintsPage({ complaints = MOCK_COMPLAINTS, onAdd
                 type="text"
                 placeholder="Search Ack, Victim, Bank, District..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearch(e.target.value)}
                 className="cyber-input"
                 style={{ width: '100%', paddingLeft: '32px', fontSize: '0.78rem' }}
               />
+              {isLoadingComplaints && (
+                <div style={{ position: 'absolute', right: '10px', top: '10px', fontSize: '0.7rem', color: '#00e5ff' }}>
+                  Loading...
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -398,53 +309,67 @@ export default function NcrpComplaintsPage({ complaints = MOCK_COMPLAINTS, onAdd
             </tr>
           </thead>
           <tbody>
-            {filtered.map((c) => {
-              const amountVal = c.fraud_amount || c.amount_lost || 0;
-              const contact = c.victim_contact || c.victim_phone || 'N/A';
-              const bank = c.mule_bank_name || c.victim_bank || 'Tracking Bank';
-              const acc = c.mule_account_no || 'IFSC Link Pending';
-              const district = c.district || 'Delhi';
-              const state = c.state || 'Delhi';
-              const status = c.status || 'UNDER_INVESTIGATION';
+            {isLoadingInitial ? (
+              <tr>
+                <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  Loading complaints from database...
+                </td>
+              </tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  No complaints found. Try adjusting your search or submit a new complaint.
+                </td>
+              </tr>
+            ) : (
+              filtered.map((c) => {
+                const amountVal = c.fraud_amount || c.amount_lost || 0;
+                const contact = c.victim_contact || c.victim_phone || 'N/A';
+                const bank = c.mule_bank_name || c.victim_bank || 'Tracking Bank';
+                const acc = c.mule_account_no || 'IFSC Link Pending';
+                const district = c.district || 'Delhi';
+                const state = c.state || 'Delhi';
+                const status = c.status || 'UNDER_INVESTIGATION';
 
-              return (
-                <tr
-                  key={c.id || c.acknowledgement_no}
-                  onClick={() => handleRowClick(c)}
-                  style={{ cursor: 'pointer' }}
-                  title="Click to inspect tactical intelligence and linked hotspot"
-                >
-                  <td><strong style={{ color: '#00e5ff' }}>{c.acknowledgement_no}</strong></td>
-                  <td>
-                    <div style={{ fontWeight: 700, color: '#fff' }}>{c.victim_name || 'Citizen'}</div>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{contact}</div>
-                  </td>
-                  <td>
-                    <span className="pulse-badge warning" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
-                      {c.fraud_category}
-                    </span>
-                  </td>
-                  <td style={{ color: '#00e676', fontWeight: 800 }}>₹{parseFloat(amountVal).toLocaleString()}</td>
-                  <td>
-                    <div style={{ fontWeight: 600, color: '#fff' }}>{bank}</div>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{acc}</div>
-                  </td>
-                  <td>{district}, {state}</td>
-                  <td>
-                    <span style={{
-                      fontSize: '0.68rem',
-                      color: status === 'PROCESSED' ? '#00e676' : '#cbd5e1',
-                      background: status === 'PROCESSED' ? 'rgba(0,230,118,0.12)' : 'rgba(255,255,255,0.06)',
-                      padding: '3px 8px',
-                      borderRadius: '4px',
-                      border: status === 'PROCESSED' ? '1px solid rgba(0,230,118,0.25)' : 'none'
-                    }}>
-                      {status}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
+                return (
+                  <tr
+                    key={c.id || c.acknowledgement_no}
+                    onClick={() => handleRowClick(c)}
+                    style={{ cursor: 'pointer' }}
+                    title="Click to inspect tactical intelligence and linked hotspot"
+                  >
+                    <td><strong style={{ color: '#00e5ff' }}>{c.acknowledgement_no}</strong></td>
+                    <td>
+                      <div style={{ fontWeight: 700, color: '#fff' }}>{c.victim_name || 'Citizen'}</div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{contact}</div>
+                    </td>
+                    <td>
+                      <span className="pulse-badge warning" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
+                        {c.fraud_category}
+                      </span>
+                    </td>
+                    <td style={{ color: '#00e676', fontWeight: 800 }}>₹{parseFloat(amountVal).toLocaleString()}</td>
+                    <td>
+                      <div style={{ fontWeight: 600, color: '#fff' }}>{bank}</div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{acc}</div>
+                    </td>
+                    <td>{district}, {state}</td>
+                    <td>
+                      <span style={{
+                        fontSize: '0.68rem',
+                        color: status === 'PROCESSED' ? '#00e676' : '#cbd5e1',
+                        background: status === 'PROCESSED' ? 'rgba(0,230,118,0.12)' : 'rgba(255,255,255,0.06)',
+                        padding: '3px 8px',
+                        borderRadius: '4px',
+                        border: status === 'PROCESSED' ? '1px solid rgba(0,230,118,0.25)' : 'none'
+                      }}>
+                        {status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
@@ -508,26 +433,28 @@ export default function NcrpComplaintsPage({ complaints = MOCK_COMPLAINTS, onAdd
             </div>
 
             {/* Linked ML Hotspot Intelligence */}
-            <div style={{ background: 'rgba(0, 229, 255, 0.08)', border: '1px solid rgba(0, 229, 255, 0.25)', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#00e5ff', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Zap size={14} /> Linked ML Hotspot & Extraction Forecast
-                </span>
-                <span className={`pulse-badge ${selectedComplaint.alert_level === 'P1' ? 'danger' : 'warning'}`}>
-                  {selectedComplaint.alert_level || 'P1'} ALERT
-                </span>
-              </div>
-
-              <p style={{ fontSize: '0.76rem', color: '#cbd5e1', lineHeight: 1.45 }}>
-                {selectedComplaint.actionable_intelligence || 'Real-time high risk ATM withdrawal anomaly detected in target district. Proximity patrol alerted.'}
-              </p>
-
-              {selectedComplaint.risk_score && (
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-                  Threat Risk Score: <strong style={{ color: '#ff385c' }}>{((selectedComplaint.risk_score) * 100).toFixed(0)}%</strong>
+            {selectedComplaint.alert_level && (
+              <div style={{ background: 'rgba(0, 229, 255, 0.08)', border: '1px solid rgba(0, 229, 255, 0.25)', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#00e5ff' }}>
+                    Linked ML Hotspot & Extraction Forecast
+                  </span>
+                  <span className={`pulse-badge ${selectedComplaint.alert_level === 'P1' ? 'danger' : 'warning'}`}>
+                    {selectedComplaint.alert_level} ALERT
+                  </span>
                 </div>
-              )}
-            </div>
+
+                <p style={{ fontSize: '0.76rem', color: '#cbd5e1', lineHeight: 1.45 }}>
+                  {selectedComplaint.actionable_intelligence || 'Real-time high risk ATM withdrawal anomaly detected in target district. Proximity patrol alerted.'}
+                </p>
+
+                {selectedComplaint.risk_score && (
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                    Threat Risk Score: <strong style={{ color: '#ff385c' }}>{((selectedComplaint.risk_score) * 100).toFixed(0)}%</strong>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
               <button onClick={() => setSelectedComplaint(null)} className="cyber-btn cyber-btn-secondary">
@@ -557,6 +484,24 @@ export default function NcrpComplaintsPage({ complaints = MOCK_COMPLAINTS, onAdd
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff' }}>Lodge Citizen Cybercrime Report</h3>
               <button onClick={() => setShowSubmitModal(false)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1rem' }}>✕</button>
+            </div>
+
+            {/* Quick Preset Buttons */}
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', alignSelf: 'center', marginRight: '4px' }}>
+                Quick Fill:
+              </span>
+              {SAMPLE_PRESETS.map((preset, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleApplyPreset(preset)}
+                  className="interactive-chip"
+                  style={{ fontSize: '0.7rem', padding: '4px 10px' }}
+                >
+                  {preset.name}
+                </button>
+              ))}
             </div>
 
             <form onSubmit={handleSubmitComplaint} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

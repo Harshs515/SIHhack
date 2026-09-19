@@ -48,9 +48,33 @@ function mapComplaint(row, fallbackLat, fallbackLng) {
     row.longitude ??
     72.877;
 
+  // Parse raw_reference JSON if available
+  let rawData = {};
+  if (row.raw_reference) {
+    try {
+      rawData = typeof row.raw_reference === 'string' 
+        ? JSON.parse(row.raw_reference) 
+        : row.raw_reference;
+    } catch (e) {
+      console.warn('Failed to parse raw_reference:', e);
+    }
+  }
 
   return {
     ...row,
+
+    // Map database fields to frontend expectations
+    acknowledgement_no: row.complaint_id || rawData.acknowledgement_no || row.id,
+    fraud_category: row.crime_category || rawData.fraud_category || 'Unknown Fraud',
+    fraud_amount: row.amount || rawData.fraud_amount || rawData.amount_lost || 0,
+    
+    // Extract victim details from raw_reference
+    victim_name: rawData.victim_name || 'Unknown',
+    victim_phone: rawData.victim_phone || rawData.victim_contact || null,
+    victim_contact: rawData.victim_phone || rawData.victim_contact || null,
+    victim_bank: rawData.victim_bank || null,
+    mule_bank_name: rawData.mule_bank_name || null,
+    mule_account_no: rawData.suspect_transaction_id || null,
 
     latitude,
     longitude,
@@ -64,29 +88,46 @@ function mapComplaint(row, fallbackLat, fallbackLng) {
       row.state ||
       fromAddress.state ||
       null,
-
-    // Database uses victim_phone,
-    // frontend can use victim_contact
-    victim_contact:
-      row.victim_contact ||
-      row.victim_phone ||
-      null,
   };
 }
 
 
 // ==================================================
 // GET /api/complaints
-// Fetch all complaints
+// Fetch all complaints with optional search
 // ==================================================
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('cybercrime_complaints')
+    const { search, limit } = req.query;
+
+    let query = supabase
+      .from('complaints')
       .select('*')
       .order('created_at', {
         ascending: false,
       });
+
+    // Apply search filter if provided
+    if (search && search.trim()) {
+      const searchTerm = search.trim().toLowerCase();
+      query = query.or(
+        `acknowledgement_no.ilike.%${searchTerm}%,` +
+        `victim_name.ilike.%${searchTerm}%,` +
+        `victim_phone.ilike.%${searchTerm}%,` +
+        `victim_contact.ilike.%${searchTerm}%,` +
+        `fraud_category.ilike.%${searchTerm}%,` +
+        `mule_bank_name.ilike.%${searchTerm}%,` +
+        `district.ilike.%${searchTerm}%,` +
+        `state.ilike.%${searchTerm}%`
+      );
+    }
+
+    // Apply limit if provided
+    if (limit) {
+      query = query.limit(parseInt(limit));
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       throw error;
@@ -123,7 +164,7 @@ router.get('/', async (req, res) => {
 router.get('/:ackNo', async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('cybercrime_complaints')
+      .from('complaints')
       .select('*')
       .eq(
         'acknowledgement_no',
