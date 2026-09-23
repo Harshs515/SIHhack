@@ -1,0 +1,7 @@
+{
+  "p1_threshold": 0.037,
+  "p2_threshold": 0.034,
+  "n_classes": 35,
+  "top1_val": 0.0312,
+  "top3_val": 0.0818
+}

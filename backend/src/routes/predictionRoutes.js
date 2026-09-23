@@ -94,11 +94,11 @@ router.get('/stats', async (req, res) => {
     todayStart.setHours(0, 0, 0, 0);
 
     const [cRes, hRes, aRes, psRes, cTodayRes] = await Promise.all([
-      supabase.from('cybercrime_complaints').select('id, fraud_amount'),
+      supabase.from('complaints').select('id, fraud_amount'),
       supabase.from('predicted_hotspots').select('id, risk_score, alert_level, status').in('status', ['ACTIVE', 'ACKNOWLEDGED']),
       supabase.from('atm_locations').select('id'),
       supabase.from('police_stations').select('id'),
-      supabase.from('cybercrime_complaints').select('id').gte('created_at', todayStart.toISOString()),
+      supabase.from('complaints').select('id').gte('created_at', todayStart.toISOString()),
     ]);
 
     const totalFraudVolume = (cRes.data || []).reduce(
@@ -269,7 +269,7 @@ router.post('/trigger', async (req, res) => {
     if (!data) {
       // Fallback: Query live complaints, refresh hotspot timestamps, and log model run
       const [cRes, hRes] = await Promise.all([
-        supabase.from('cybercrime_complaints').select('*').limit(50),
+        supabase.from('complaints').select('*').limit(50),
         supabase.from('predicted_hotspots').select('*').eq('status', 'ACTIVE'),
       ]);
 
