@@ -1,12 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   FileSpreadsheet,
-  PlusCircle,
   Search,
   CheckCircle2,
-  ShieldCheck,
-  ExternalLink,
   Filter,
   X,
   Zap
@@ -44,11 +40,9 @@ const SAMPLE_PRESETS = [
 ];
 
 export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }) {
-  const navigate = useNavigate();
   const [complaintList, setComplaintList] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
-  const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isLoadingComplaints, setIsLoadingComplaints] = useState(false);
@@ -222,23 +216,6 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => navigate('/ncrp-portal')}
-            className="cyber-btn cyber-btn-secondary"
-            style={{ fontSize: '0.8rem', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <ShieldCheck size={15} color="#00e5ff" />
-            <span>Open Citizen Portal Simulator</span>
-            <ExternalLink size={13} />
-          </button>
-
-          <button
-            onClick={() => setShowSubmitModal(true)}
-            className="cyber-btn"
-            style={{ fontSize: '0.8rem', padding: '8px 16px' }}
-          >
-            <PlusCircle size={15} /> Fast Ingest Modal
-          </button>
         </div>
       </div>
 
@@ -466,7 +443,7 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
       )}
 
       {/* Lodge Complaint Modal */}
-      {showSubmitModal && (
+      {false && (
         <div style={{
           position: 'fixed',
           top: 0,

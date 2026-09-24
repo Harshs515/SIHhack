@@ -16,14 +16,11 @@ import AiChatbot from "./components/AiChatbot";
 import DashboardPage from "./pages/DashboardPage";
 import CommandCenter from "./pages/CommandCenter";
 import GisHeatmapPage from "./pages/GisHeatmapPage";
-import MuleGraphPage from "./pages/MuleGraphPage";
 import LeaInterfacePage from "./pages/LeaInterfacePage";
 import AlertsCenterPage from "./pages/AlertsCenterPage";
 import NcrpComplaintsPage from "./pages/NcrpComplaintsPage";
-import NcrpCitizenPortalPage from "./pages/NcrpCitizenPortalPage";
 import AuthLandingPage from "./pages/AuthLandingPage";
 import AnalyticsReportsPage from "./pages/AnalyticsReportsPage";
-import FieldOfficerPortal from "./pages/FieldOfficerPortal";
 
 import {
   getAtms,
@@ -151,8 +148,7 @@ function AppContent({
               }
             />
 
-            {/* 3. Mule Chain Graph & Neo4j Explorer */}
-            <Route path="/mule-graph" element={<MuleGraphPage />} />
+            {/* 3. Mule Chain Graph & Neo4j Explorer (temporarily disabled) */}
 
             {/* 4. Law Enforcement Agency (LEA) Tactical Dispatch */}
             <Route
@@ -189,24 +185,7 @@ function AppContent({
               }
             />
 
-            {/* 7.1. NCRP Citizen Portal Simulation (cybercrime.gov.in) */}
-            <Route
-              path="/ncrp-portal"
-              element={
-                <NcrpCitizenPortalPage
-                  complaints={complaints}
-                  onAddComplaint={handleAddComplaint}
-                />
-              }
-            />
-            <Route
-              path="/citizen-portal"
-              element={<Navigate to="/ncrp-portal" replace />}
-            />
-            <Route
-              path="/ncrp-simulation"
-              element={<Navigate to="/ncrp-portal" replace />}
-            />
+            {/* 7.1. NCRP Citizen Portal Simulation (temporarily disabled) */}
 
             {/* 8. Executive Analytics & I4C Dossier Reports */}
             <Route
@@ -214,17 +193,7 @@ function AppContent({
               element={<AnalyticsReportsPage />}
             />
 
-            {/* 9. Field Officer Portal */}
-            <Route
-              path="/field-officer"
-              element={
-                <FieldOfficerPortal
-                  hotspots={hotspots}
-                  setHotspots={setHotspots}
-                  stats={stats}
-                />
-              }
-            />
+            {/* 9. Field Officer Portal (temporarily disabled) */}
 
             {/* 11. Authentication Gateway (Citizen & Field Officer) */}
             <Route path="/auth" element={<AuthLandingPage />} />

@@ -3,20 +3,16 @@ import { NavLink, Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   MapPin,
-  GitFork,
   ShieldAlert,
   BellRing,
   FileSpreadsheet,
   BarChart3,
   Sun,
   Moon,
-  Download,
   ShieldCheck,
   LogIn,
   LogOut,
 } from "lucide-react";
-import { usePWAInstall } from "../hooks/usePWAInstall";
-import PWAInstallModal from "./PWAInstallModal";
 import AppLogo from "./AppLogo";
 import { getSession, clearSession } from "../utils/session";
 
@@ -24,7 +20,6 @@ import { getSession, clearSession } from "../utils/session";
 const OFFICER_NAV_MODULES = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/gis-heatmap", label: "GIS Heatmap", icon: MapPin },
-  { path: "/mule-graph", label: "Mule Graph", icon: GitFork },
   { path: "/lea-interface", label: "LEA Dispatch", icon: ShieldAlert },
   { path: "/alerts-center", label: "Alerts", icon: BellRing },
   { path: "/ncrp-complaints", label: "NCRP / 1930", icon: FileSpreadsheet },
@@ -41,21 +36,6 @@ export default function Navbar({
   const location = useLocation();
   const session = getSession();
   const [time, setTime] = useState("");
-  const [installModalOpen, setInstallModalOpen] = useState(false);
-  const [installPulse, setInstallPulse] = useState(false);
-
-  const { isInstalled, canInstall, platform, modalDismissed } = usePWAInstall();
-
-  // Show the install button if: not installed, and either native prompt OR iOS
-  const showInstallBtn = !isInstalled && !modalDismissed;
-
-  // Pulse the button after 3s to draw attention
-  useEffect(() => {
-    if (!showInstallBtn) return;
-    const t = setTimeout(() => setInstallPulse(true), 3000);
-    return () => clearTimeout(t);
-  }, [showInstallBtn]);
-
   const isAuthPage =
     location.pathname === "/auth" ||
     location.pathname === "/login" ||
@@ -258,66 +238,6 @@ export default function Navbar({
                 {session.profile.name}
               </span>
             )}
-            {/* ── PWA Install Button ── */}
-            {showInstallBtn && (
-              <div style={{ position: "relative" }}>
-                {/* Pulse ring */}
-                {installPulse && (
-                  <span
-                    style={{
-                      position: "absolute",
-                      inset: "-4px",
-                      borderRadius: "10px",
-                      border: "2px solid rgba(0,229,255,0.6)",
-                      animation: "pwaRingPulse 2s ease-in-out infinite",
-                      pointerEvents: "none",
-                    }}
-                  />
-                )}
-                <button
-                  id="pwa-install-btn"
-                  onClick={() => setInstallModalOpen(true)}
-                  title="Install TRINETRA as an app"
-                  style={{
-                    height: "32px",
-                    padding: "0 12px",
-                    borderRadius: "8px",
-                    background:
-                      "linear-gradient(135deg, rgba(0,229,255,0.15) 0%, rgba(58,123,213,0.15) 100%)",
-                    border: "1px solid rgba(0,229,255,0.4)",
-                    color: "#00e5ff",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    cursor: "pointer",
-                    fontSize: "0.72rem",
-                    fontWeight: 700,
-                    letterSpacing: "0.04em",
-                    whiteSpace: "nowrap",
-                    transition: "all 0.2s ease",
-                    boxShadow: "0 0 12px rgba(0,229,255,0.15)",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background =
-                      "linear-gradient(135deg, rgba(0,229,255,0.25) 0%, rgba(58,123,213,0.25) 100%)";
-                    e.currentTarget.style.boxShadow =
-                      "0 0 20px rgba(0,229,255,0.3)";
-                    e.currentTarget.style.borderColor = "rgba(0,229,255,0.7)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background =
-                      "linear-gradient(135deg, rgba(0,229,255,0.15) 0%, rgba(58,123,213,0.15) 100%)";
-                    e.currentTarget.style.boxShadow =
-                      "0 0 12px rgba(0,229,255,0.15)";
-                    e.currentTarget.style.borderColor = "rgba(0,229,255,0.4)";
-                  }}
-                >
-                  <Download size={13} strokeWidth={2.2} />
-                  Install App
-                </button>
-              </div>
-            )}
-
             {/* Theme Toggle */}
             <button
               onClick={onToggleTheme}
@@ -373,20 +293,6 @@ export default function Navbar({
         </div>
       </header>
 
-      {/* PWA Install Modal */}
-      <PWAInstallModal
-        isOpen={installModalOpen}
-        onClose={() => setInstallModalOpen(false)}
-      />
-
-      {/* Pulse keyframes */}
-      <style>{`
-        @keyframes pwaRingPulse {
-          0%   { transform: scale(1);    opacity: 0.8; }
-          50%  { transform: scale(1.12); opacity: 0.3; }
-          100% { transform: scale(1);    opacity: 0.8; }
-        }
-      `}</style>
     </>
   );
 }

@@ -20,12 +20,9 @@ import {
   Activity,
   Zap,
   BadgeAlert,
-  Download,
   LogOut,
 } from "lucide-react";
-import FieldOfficerPWAModal from "../components/FieldOfficerPWAModal";
 import AppLogo from "../components/AppLogo";
-import { usePWAInstall } from "../hooks/usePWAInstall";
 import { FIELD_OFFICERS } from "../data/personnel";
 import { getSession, clearSession } from "../utils/session";
 import { supabase } from "../services/realtimeClient";
@@ -670,12 +667,8 @@ function PortalDashboard({ officer, hotspots = [], setHotspots, stats = {} }) {
   });
   const [selectedDetail, setSelectedDetail] = useState(null);
   const [broadcastMsg, setBroadcastMsg] = useState(null);
-  const [showInstallModal, setShowInstallModal] = useState(false);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
-
-  const { isInstalled } = usePWAInstall();
 
   const unreadCount = notifications.filter((n) => !n.ackStatus).length;
 
@@ -908,46 +901,6 @@ function PortalDashboard({ officer, hotspots = [], setHotspots, stats = {} }) {
               flexShrink: 0,
             }}
           >
-            {/* Install Field Officer PWA Button */}
-            <button
-              onClick={() => setShowInstallModal(true)}
-              style={{
-                height: "32px",
-                padding: "0 12px",
-                borderRadius: "8px",
-                background:
-                  "linear-gradient(135deg, rgba(0,229,255,0.15) 0%, rgba(59,130,246,0.15) 100%)",
-                border: "1px solid rgba(0,229,255,0.45)",
-                color: "#00e5ff",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                cursor: "pointer",
-                fontSize: "0.72rem",
-                fontWeight: 700,
-                letterSpacing: "0.02em",
-                whiteSpace: "nowrap",
-                transition: "all 0.2s ease",
-                boxShadow: "0 0 12px rgba(0,229,255,0.15)",
-              }}
-              title="Install Field Officer App on this device"
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background =
-                  "linear-gradient(135deg, rgba(0,229,255,0.25) 0%, rgba(59,130,246,0.25) 100%)";
-                e.currentTarget.style.boxShadow =
-                  "0 0 20px rgba(0,229,255,0.3)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background =
-                  "linear-gradient(135deg, rgba(0,229,255,0.15) 0%, rgba(59,130,246,0.15) 100%)";
-                e.currentTarget.style.boxShadow =
-                  "0 0 12px rgba(0,229,255,0.15)";
-              }}
-            >
-              <Download size={13} />
-              Install App
-            </button>
-
             {/* Logout Button */}
             <button
               onClick={() => {
@@ -1255,67 +1208,6 @@ function PortalDashboard({ officer, hotspots = [], setHotspots, stats = {} }) {
           </div>
         </div>
       </header>
-
-      {/* ── Separate PWA Installation Prompt Banner ── */}
-      {!isInstalled && !bannerDismissed && (
-        <div
-          style={{
-            background:
-              "linear-gradient(90deg, rgba(0,229,255,0.1) 0%, rgba(11,17,32,0.98) 100%)",
-            borderBottom: "1px solid rgba(0,229,255,0.22)",
-            padding: "8px 20px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "12px",
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <Shield size={16} color="#00e5ff" />
-            <span style={{ fontSize: "0.78rem", color: "#f1f5f9" }}>
-              <strong>Field Officer PWA:</strong> Install this dedicated app on
-              your device for instant live dispatch alerts and fast offline
-              access.
-            </span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <button
-              onClick={() => setShowInstallModal(true)}
-              style={{
-                padding: "5px 14px",
-                borderRadius: "6px",
-                background: "linear-gradient(135deg, #00e5ff, #3b82f6)",
-                border: "none",
-                color: "#040914",
-                fontSize: "0.74rem",
-                fontWeight: 800,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "5px",
-                boxShadow: "0 2px 10px rgba(0,229,255,0.35)",
-              }}
-            >
-              <Download size={13} /> Install App
-            </button>
-            <button
-              onClick={() => setBannerDismissed(true)}
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "var(--text-muted)",
-                cursor: "pointer",
-                padding: "4px",
-                display: "flex",
-              }}
-              title="Dismiss"
-            >
-              <X size={15} />
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ── Broadcast message banner ── */}
       {broadcastMsg && (
@@ -1627,12 +1519,6 @@ function PortalDashboard({ officer, hotspots = [], setHotspots, stats = {} }) {
         />
       )}
 
-      {/* Dedicated Field Officer PWA Install Modal */}
-      <FieldOfficerPWAModal
-        isOpen={showInstallModal}
-        onClose={() => setShowInstallModal(false)}
-      />
-
       {/* Keyframes */}
       <style>{`
         @keyframes notifPulse {
@@ -1657,22 +1543,6 @@ export default function FieldOfficerPortal({ hotspots, setHotspots, stats }) {
         session.profile
       : null;
   const [currentOfficer] = useState(matchedOfficer || FIELD_OFFICERS[0]);
-
-  // Dynamically set the manifest link to Field Officer specific PWA manifest
-  useEffect(() => {
-    const manifestLink = document.getElementById("app-manifest");
-    const prevHref = manifestLink
-      ? manifestLink.getAttribute("href")
-      : "/manifest.json";
-    if (manifestLink) {
-      manifestLink.setAttribute("href", "/manifest-officer.json");
-    }
-    return () => {
-      if (manifestLink) {
-        manifestLink.setAttribute("href", prevHref || "/manifest.json");
-      }
-    };
-  }, []);
 
   return (
     <PortalDashboard

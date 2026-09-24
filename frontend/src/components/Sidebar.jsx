@@ -3,7 +3,6 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
   MapPin,
-  GitFork,
   ShieldAlert,
   BellRing,
   FileSpreadsheet,
@@ -27,14 +26,6 @@ const NAV_ITEMS = [
     badge: "47 Clusters",
     badgeColor: "#ff385c",
     desc: "ATM Risk & Buffer Zones",
-  },
-  {
-    path: "/mule-graph",
-    label: "Mule Chain Graph",
-    icon: GitFork,
-    badge: "Neo4j",
-    badgeColor: "#ffaa00",
-    desc: "Multi-Hop Layering Graph",
   },
   {
     path: "/lea-interface",

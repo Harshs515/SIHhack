@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   MapPin,
-  GitFork,
   ShieldAlert,
   BellRing,
   FileSpreadsheet,
@@ -53,15 +52,6 @@ const MODULES = [
     badge: "47 Zones",
     badgeColor: "danger",
     desc: "ATM risk clusters",
-  },
-  {
-    path: "/mule-graph",
-    label: "Mule Graph",
-    icon: GitFork,
-    accentColor: "#ffaa00",
-    badge: "Neo4j",
-    badgeColor: "warning",
-    desc: "Transaction chains",
   },
   {
     path: "/lea-interface",
