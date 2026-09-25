@@ -48,78 +48,6 @@ const DEFAULT_COORDS = { lat: 28.6139, lng: 77.2090, state: 'Delhi' }
 // ─────────────────────────────────────────────────────────────
 async function processNewComplaints() {
   try {
-
-    // At the top of simulationEngine.js, add:
-// const SESSION_RESOLVER_URL = process.env.SESSION_RESOLVER_URL || 'http://localhost:8002'
-
-// Inside processNewComplaints(), BEFORE the ML call, add:
-
-// ── Session Intercept Layer ──────────────────────────────
-let sessionData = null
-let predictionLat  = parseFloat(complaint.victim_lat) || 28.6139
-let predictionLng  = parseFloat(complaint.victim_lng) || 77.2090
-let predictionState    = complaint.state    || 'Delhi'
-let predictionDistrict = complaint.district || 'Central Delhi'
-let sessionFeatures    = {}
-
-if (complaint.transaction_id) {
-  try {
-    const sessionRes = await axios.post(`${SESSION_RESOLVER_URL}/resolve`, {
-      transaction_id: complaint.transaction_id,
-      victim_lat:     complaint.victim_lat,
-      victim_lng:     complaint.victim_lng,
-      fraud_amount:   complaint.fraud_amount
-    }, { timeout: 5000 })
-
-    if (sessionRes.data.success && sessionRes.data.session.session_status === 'ACTIVE') {
-      const s = sessionRes.data.session
-      // Replace victim location with DESTINATION (mule) location
-      predictionLat      = s.destination_lat
-      predictionLng      = s.destination_lng
-      predictionState    = s.destination_state
-      predictionDistrict = s.destination_district
-      sessionData        = s
-      sessionFeatures    = sessionRes.data.ml_features || {}
-
-      console.log(`[Engine] Session intercept → redirected prediction anchor:`)
-      console.log(`  From: ${complaint.district}, ${complaint.state}`)
-      console.log(`  To:   ${predictionDistrict}, ${predictionState}`)
-      console.log(`  Session: ${s.session_id} | Last active: ${s.last_activity_delta_minutes}m ago`)
-    }
-  } catch (sessionErr) {
-    // Session resolver unavailable — fall through to victim location
-    console.warn(`[Engine] Session resolver unavailable: ${sessionErr.message} — using victim location`)
-  }
-}
-
-// Now build features using predictionLat/Lng/State/District
-// instead of complaint.victim_lat/lng/state/district
-const features = {
-  // ... all existing features ...
-  victim_lat:      predictionLat,      // ← CHANGED: now mule location if session found
-  victim_lng:      predictionLng,      // ← CHANGED
-  victim_state:    predictionState,    // ← CHANGED
-  victim_district: predictionDistrict, // ← CHANGED
-
-  // New session features
-  session_hop_count:           sessionFeatures.session_hop_count           || 3,
-  session_age_minutes:         sessionFeatures.session_age_minutes          || 60,
-  is_cross_state_session:      sessionFeatures.is_cross_state_session       || 0,
-  last_activity_delta_minutes: sessionFeatures.last_activity_delta_minutes  || 60,
-  session_active:              sessionFeatures.session_active               || 0,
-}
-
-// After inserting the hotspot, add session provenance to actionable intelligence:
-const sessionNote = sessionData
-  ? `Session ${sessionData.session_id} intercepted — money confirmed at ${predictionDistrict}, ${predictionState}. Last network activity ${sessionData.last_activity_delta_minutes} min ago. Session active for ${Math.floor((new Date(sessionData.session_expires_at) - new Date()) / 3600000)}h more.`
-  : ''
-
-const intelligence = `[${alertLevel}] ${complaint.fraud_category} flagged. ` +
-  `Predicted cashout: ${predictionDistrict}, ${predictionState}. ` +
-  `Risk: ${(riskScore * 100).toFixed(0)}%. ` +
-  (sessionNote ? sessionNote + ' ' : '') +
-  `Deploy units to ${atms?.[0]?.bank_name || ''} ATM cluster within ${windowMins} minutes.`
-    // 1. Fetch complaints not yet processed
     const { data: complaints, error: fetchError } = await supabase
       .from('complaints')
       .select('*')
@@ -140,6 +68,13 @@ const intelligence = `[${alertLevel}] ${complaint.fraud_category} flagged. ` +
     for (const complaint of complaints) {
       lastProcessedId = Math.max(lastProcessedId, complaint.id)
 
+      let sessionData = null
+      let predictionLat = parseFloat(complaint.lat) || 28.6139
+      let predictionLng = parseFloat(complaint.lng) || 77.2090
+      let predictionState = complaint.state || 'Delhi'
+      let predictionDistrict = complaint.district || 'Central Delhi'
+      let sessionFeatures = {}
+
       // ── 2. Build features for YOUR XGBoost model ──────────
       let prediction
       try {
@@ -147,6 +82,34 @@ const intelligence = `[${alertLevel}] ${complaint.fraud_category} flagged. ` +
         const filedAt      = new Date(complaint.created_at)
         const filingLagMin = Math.max(0, (filedAt - incidentAt) / 60000)
         const amount       = parseFloat(complaint.amount) || 10000
+
+        if (complaint.transaction_id) {
+          try {
+            const sessionRes = await axios.post(`${SESSION_RESOLVER_URL}/resolve`, {
+              transaction_id: complaint.transaction_id,
+              victim_lat: complaint.lat,
+              victim_lng: complaint.lng,
+              fraud_amount: complaint.amount
+            }, { timeout: 5000 })
+
+            if (sessionRes.data.success && sessionRes.data.session && sessionRes.data.session.session_status === 'ACTIVE') {
+              const s = sessionRes.data.session
+              predictionLat = s.destination_lat || predictionLat
+              predictionLng = s.destination_lng || predictionLng
+              predictionState = s.destination_state || predictionState
+              predictionDistrict = s.destination_district || predictionDistrict
+              sessionData = s
+              sessionFeatures = sessionRes.data.ml_features || {}
+
+              console.log(`[Engine] Session intercept → redirected prediction anchor:`)
+              console.log(`  From: ${complaint.district || 'unknown'}, ${complaint.state || 'unknown'}`)
+              console.log(`  To:   ${predictionDistrict}, ${predictionState}`)
+              console.log(`  Session: ${s.session_id} | Last active: ${s.last_activity_delta_minutes}m ago`)
+            }
+          } catch (sessionErr) {
+            console.warn(`[Engine] Session resolver unavailable: ${sessionErr.message} — using victim location`)
+          }
+        }
 
         // Feature names MUST match xgb_feature_names.json exactly.
         // If your feature names differ, update keys below to match.
@@ -191,10 +154,15 @@ const intelligence = `[${alertLevel}] ${complaint.fraud_category} flagged. ` +
           gnn_edge_dst:          [],
           cashout_atm_id:        null,
           // Raw location for DBSCAN nearest-cluster lookup
-          victim_lat:            parseFloat(complaint.lat) || 28.6139,
-          victim_lng:            parseFloat(complaint.lng) || 77.2090,
-          victim_state:          complaint.state || 'Delhi',
-          victim_district:       complaint.district || 'Central Delhi',
+          victim_lat:            predictionLat,
+          victim_lng:            predictionLng,
+          victim_state:          predictionState,
+          victim_district:       predictionDistrict,
+          session_hop_count:    sessionFeatures.session_hop_count || 3,
+          session_age_minutes:  sessionFeatures.session_age_minutes || 60,
+          is_cross_state_session: sessionFeatures.is_cross_state_session || 0,
+          last_activity_delta_minutes: sessionFeatures.last_activity_delta_minutes || 60,
+          session_active:       sessionFeatures.session_active || 0,
         }
         
 
@@ -219,6 +187,9 @@ const intelligence = `[${alertLevel}] ${complaint.fraud_category} flagged. ` +
       const district   = prediction.predicted_districts?.[0] || complaint.district || 'Central Delhi'
       const coords     = DISTRICT_COORDS[district] || DEFAULT_COORDS
       const windowMins = alertLevel === 'P1' ? 60 : alertLevel === 'P2' ? 90 : 120
+      const sessionNote = sessionData
+        ? `Session ${sessionData.session_id} intercepted — money confirmed at ${predictionDistrict}, ${predictionState}. Last network activity ${sessionData.last_activity_delta_minutes} min ago.`
+        : ''
 
       // SHAP features from ML response (your serve/ module should return these)
       const shapFeatures = prediction.shap_top_features || prediction.feature_importance || []
@@ -247,11 +218,12 @@ const intelligence = `[${alertLevel}] ${complaint.fraud_category} flagged. ` +
 
       // ── 7. Build actionable intelligence text ─────────────
       const intelligence =
-        `[${alertLevel}] ${complaint.crime_category} detected. ` +
+        `[${alertLevel}] ${(complaint.crime_category || complaint.fraud_category || 'Cybercrime')} detected. ` +
         `Predicted cashout zone: ${district}, ${coords.state}. ` +
         `Risk score: ${(riskScore * 100).toFixed(0)}%. ` +
         `Fraud amount: ${Number(complaint.amount).toLocaleString('en-IN')}. ` +
         `Complaint: ${complaint.complaint_id}. ` +
+        (sessionNote ? `${sessionNote} ` : '') +
         `Deploy response units to ATM cluster within ${windowMins} minutes. ` +
         `Alert local banks to freeze suspicious transactions.`
 
