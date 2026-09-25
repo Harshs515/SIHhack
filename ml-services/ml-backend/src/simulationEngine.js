@@ -14,6 +14,44 @@
 // At the top of simulationEngine.js, add:
 const SESSION_RESOLVER_URL = process.env.SESSION_RESOLVER_URL || 'http://localhost:8002'
 
+
+const { supabase, pool } = require('./db')
+const axios              = require('axios')
+require('dotenv').config()
+
+const ML_URL        = process.env.ML_SERVICE_URL || 'http://localhost:8001'
+const POLL_INTERVAL = 30_000   // 30 seconds
+let   lastProcessedId = 0
+
+// ── District → coordinates lookup ────────────────────────────
+// Expand this list to match your district_classes.json
+const DISTRICT_COORDS = {
+  'Rohini':        { lat: 28.7041, lng: 77.0780, state: 'Delhi' },
+  'Central Delhi': { lat: 28.6139, lng: 77.2090, state: 'Delhi' },
+  'Hyderabad':     { lat: 17.3850, lng: 78.4867, state: 'Telangana' },
+  'Rangareddy':    { lat: 17.2403, lng: 78.3338, state: 'Telangana' },
+  'Mumbai':        { lat: 19.0760, lng: 72.8777, state: 'Maharashtra' },
+  'Andheri':       { lat: 19.1136, lng: 72.8697, state: 'Maharashtra' },
+  'Nashik':        { lat: 19.9975, lng: 73.7898, state: 'Maharashtra' },
+  'Kolkata':       { lat: 22.5726, lng: 88.3697, state: 'West Bengal' },
+  'Chennai':       { lat: 13.0827, lng: 80.2707, state: 'Tamil Nadu' },
+  'Bengaluru':     { lat: 12.9716, lng: 77.5946, state: 'Karnataka' },
+  'Jaipur':        { lat: 26.9124, lng: 75.7873, state: 'Rajasthan' },
+  'Lucknow':       { lat: 26.8467, lng: 80.9462, state: 'Uttar Pradesh' },
+  'Khammam':       { lat: 17.2473, lng: 80.1514, state: 'Telangana' },
+}
+
+const DEFAULT_COORDS = { lat: 28.6139, lng: 77.2090, state: 'Delhi' }
+
+// ─────────────────────────────────────────────────────────────
+// MAIN LOOP
+// ─────────────────────────────────────────────────────────────
+async function processNewComplaints() {
+  try {
+
+    // At the top of simulationEngine.js, add:
+// const SESSION_RESOLVER_URL = process.env.SESSION_RESOLVER_URL || 'http://localhost:8002'
+
 // Inside processNewComplaints(), BEFORE the ML call, add:
 
 // ── Session Intercept Layer ──────────────────────────────
@@ -81,40 +119,6 @@ const intelligence = `[${alertLevel}] ${complaint.fraud_category} flagged. ` +
   `Risk: ${(riskScore * 100).toFixed(0)}%. ` +
   (sessionNote ? sessionNote + ' ' : '') +
   `Deploy units to ${atms?.[0]?.bank_name || ''} ATM cluster within ${windowMins} minutes.`
-
-const { supabase, pool } = require('./db')
-const axios              = require('axios')
-require('dotenv').config()
-
-const ML_URL        = process.env.ML_SERVICE_URL || 'http://localhost:8001'
-const POLL_INTERVAL = 30_000   // 30 seconds
-let   lastProcessedId = 0
-
-// ── District → coordinates lookup ────────────────────────────
-// Expand this list to match your district_classes.json
-const DISTRICT_COORDS = {
-  'Rohini':        { lat: 28.7041, lng: 77.0780, state: 'Delhi' },
-  'Central Delhi': { lat: 28.6139, lng: 77.2090, state: 'Delhi' },
-  'Hyderabad':     { lat: 17.3850, lng: 78.4867, state: 'Telangana' },
-  'Rangareddy':    { lat: 17.2403, lng: 78.3338, state: 'Telangana' },
-  'Mumbai':        { lat: 19.0760, lng: 72.8777, state: 'Maharashtra' },
-  'Andheri':       { lat: 19.1136, lng: 72.8697, state: 'Maharashtra' },
-  'Nashik':        { lat: 19.9975, lng: 73.7898, state: 'Maharashtra' },
-  'Kolkata':       { lat: 22.5726, lng: 88.3697, state: 'West Bengal' },
-  'Chennai':       { lat: 13.0827, lng: 80.2707, state: 'Tamil Nadu' },
-  'Bengaluru':     { lat: 12.9716, lng: 77.5946, state: 'Karnataka' },
-  'Jaipur':        { lat: 26.9124, lng: 75.7873, state: 'Rajasthan' },
-  'Lucknow':       { lat: 26.8467, lng: 80.9462, state: 'Uttar Pradesh' },
-  'Khammam':       { lat: 17.2473, lng: 80.1514, state: 'Telangana' },
-}
-
-const DEFAULT_COORDS = { lat: 28.6139, lng: 77.2090, state: 'Delhi' }
-
-// ─────────────────────────────────────────────────────────────
-// MAIN LOOP
-// ─────────────────────────────────────────────────────────────
-async function processNewComplaints() {
-  try {
     // 1. Fetch complaints not yet processed
     const { data: complaints, error: fetchError } = await supabase
       .from('complaints')
@@ -192,6 +196,8 @@ async function processNewComplaints() {
           victim_state:          complaint.state || 'Delhi',
           victim_district:       complaint.district || 'Central Delhi',
         }
+        
+
 
         const { data: mlResponse } = await axios.post(
           `${ML_URL}/predict`,
