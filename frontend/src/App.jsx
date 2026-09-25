@@ -29,6 +29,7 @@ import {
   getPoliceStations,
   getModelRuns,
   triggerPredictions,
+  API_BASE_URL,
 } from "./api/api";
 
 // Domain Intelligence Mock Data
@@ -39,7 +40,7 @@ import {
   MOCK_POLICE_STATIONS,
 } from "./data/mockData";
 
-const API = import.meta.env.VITE_API_BASE_URL || 'https://sih2026-backend-k5ru.onrender.com/api';
+const API = API_BASE_URL;
 
 function AppContent({
   isRunningML,
