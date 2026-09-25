@@ -5,8 +5,16 @@ const { supabase, parseWKBPoint } = require('../supabase');
 // GET /api/predictions/hotspots - Fetch active hotspots with ATM & Police Station details from Supabase
 router.get('/hotspots', async (req, res) => {
   try {
-    let query = supabase.from('predicted_hotspots').select('*');
     const { level, status } = req.query;
+
+    // Change 8: Use Supabase foreign-table join syntax instead of three separate queries
+    let query = supabase
+      .from('predicted_hotspots')
+      .select(`
+        *,
+        atm_locations!atm_location_id(bank_name, city, district, state, geom),
+        police_stations!assigned_police_station_id(name, station_code, contact_number, city, geom)
+      `);
 
     if (status) {
       query = query.eq('status', status.toUpperCase());
@@ -14,24 +22,38 @@ router.get('/hotspots', async (req, res) => {
       query = query.in('status', ['ACTIVE', 'ACKNOWLEDGED']);
     }
 
-    const [hRes, aRes, psRes, mRes] = await Promise.all([
-      query,
-      supabase.from('atm_locations').select('*'),
-      supabase.from('police_stations').select('*'),
-      supabase.from('model_runs').select('*'),
-    ]);
+    const { data: hData, error: hError } = await query;
 
-    if (hRes.error) throw hRes.error;
+    // Graceful fallback: if foreign join fails (FK name mismatch), use the original multi-query approach
+    let hotspotRows = hData;
+    if (hError) {
+      console.warn('[Hotspots] Foreign join failed, using multi-query fallback:', hError.message);
+      let fallbackQuery = supabase.from('predicted_hotspots').select('*');
+      if (status) {
+        fallbackQuery = fallbackQuery.eq('status', status.toUpperCase());
+      } else {
+        fallbackQuery = fallbackQuery.in('status', ['ACTIVE', 'ACKNOWLEDGED']);
+      }
+      const [hRes, aRes, psRes] = await Promise.all([
+        fallbackQuery,
+        supabase.from('atm_locations').select('*'),
+        supabase.from('police_stations').select('*'),
+      ]);
+      if (hRes.error) throw hRes.error;
+      const atmsMap = Object.fromEntries((aRes.data || []).map((a) => [a.id, a]));
+      const psMap = Object.fromEntries((psRes.data || []).map((p) => [p.id, p]));
+      hotspotRows = (hRes.data || []).map((h) => ({
+        ...h,
+        atm_locations: atmsMap[h.atm_location_id] || null,
+        police_stations: psMap[h.assigned_police_station_id] || null,
+      }));
+    }
 
-    const atmsMap = Object.fromEntries((aRes.data || []).map((a) => [a.id, a]));
-    const psMap = Object.fromEntries((psRes.data || []).map((p) => [p.id, p]));
-    const mMap = Object.fromEntries((mRes.data || []).map((m) => [m.id, m]));
-
-    let hotspots = (hRes.data || []).map((h) => {
+    let hotspots = (hotspotRows || []).map((h) => {
       const coords = parseWKBPoint(h.center_geom);
-      const atm = atmsMap[h.atm_location_id] || {};
-      const ps = psMap[h.assigned_police_station_id] || {};
-      const mr = mMap[h.model_run_id] || {};
+      // Flatten nested joined objects
+      const atm = h.atm_locations || {};
+      const ps = h.police_stations || {};
 
       const atmCoords = parseWKBPoint(atm.geom);
       const psCoords = parseWKBPoint(ps.geom);
@@ -43,6 +65,9 @@ router.get('/hotspots', async (req, res) => {
 
       return {
         ...h,
+        // Remove nested objects to avoid circular/nested structure on client
+        atm_locations: undefined,
+        police_stations: undefined,
         lat,
         lng,
         center_latitude: lat,
@@ -51,28 +76,24 @@ router.get('/hotspots', async (req, res) => {
         alert_tier: alert_level,
         radius_meters: h.radius_meters || 1000,
         top_fraud_category: h.top_fraud_category || 'UPI_FRAUD',
-        district: h.district || atm.city || ps.city || 'Rohini',
+        district: h.district || atm.district || atm.city || ps.city || 'Rohini',
         state: h.state || atm.state || ps.state || 'Delhi',
         actionable_intelligence: h.actionable_intelligence || `Potential mule cashout concentrated around ${atm.bank_name || 'ATM cluster'}. Recommended immediate dispatch.`,
+        // ATM fields (Change 8: flattened from nested join)
         atm_bank: atm.bank_name || 'State Bank of India',
-        atm_city: atm.city || 'Delhi',
-        atm_risk_tier: atm.risk_tier || 'CRITICAL',
+        atm_city: atm.city || atm.district || 'Delhi',
         atm_lat: atmCoords.latitude || lat,
         atm_lng: atmCoords.longitude || lng,
         bank_name: atm.bank_name || 'Bank ATM',
-        atm_id: atm.atm_id || 'N/A',
-        atm_address: atm.address || 'Focus Area',
         city: atm.city || ps.city || 'Delhi',
-        station_name: ps.station_name || ps.name || 'Cyber Crime Police Station',
-        station_code: ps.jurisdiction_code || 'PS-01',
+        // Police station fields (Change 8: flattened from nested join)
+        station_name: ps.name || 'Cyber Crime Police Station',
+        station_code: ps.station_code || ps.jurisdiction_code || 'PS-01',
         station_contact: ps.contact_number || '1930',
         station_lat: psCoords.latitude || lat + 0.002,
         station_lng: psCoords.longitude || lng + 0.002,
-        police_station_name: ps.station_name || ps.name || 'Cyber Crime Police Station',
+        police_station_name: ps.name || 'Cyber Crime Police Station',
         police_contact: ps.contact_number || '1930',
-        model_version: mr.model_version || 'v1.0.4-spatial',
-        algorithm: mr.algorithm || 'ST-DBSCAN + XGBoost',
-        model_accuracy: mr.accuracy || 0.942,
       };
     });
 
@@ -87,6 +108,7 @@ router.get('/hotspots', async (req, res) => {
   }
 });
 
+
 // GET /api/predictions/stats - System-wide summary statistics
 router.get('/stats', async (req, res) => {
   try {
@@ -94,7 +116,7 @@ router.get('/stats', async (req, res) => {
     todayStart.setHours(0, 0, 0, 0);
 
     const [cRes, hRes, aRes, psRes, cTodayRes] = await Promise.all([
-      supabase.from('complaints').select('id, fraud_amount'),
+      supabase.from('complaints').select('id, amount'),  // actual DB column is 'amount' not 'fraud_amount'
       supabase.from('predicted_hotspots').select('id, risk_score, alert_level, status').in('status', ['ACTIVE', 'ACKNOWLEDGED']),
       supabase.from('atm_locations').select('id'),
       supabase.from('police_stations').select('id'),
@@ -102,7 +124,7 @@ router.get('/stats', async (req, res) => {
     ]);
 
     const totalFraudVolume = (cRes.data || []).reduce(
-      (sum, c) => sum + (parseFloat(c.fraud_amount) || 0),
+      (sum, c) => sum + (parseFloat(c.amount || c.fraud_amount) || 0),
       0
     );
 

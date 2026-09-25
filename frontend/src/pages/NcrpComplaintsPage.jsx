@@ -61,6 +61,14 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
   const [ingestError, setIngestError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Seed from complaints prop (App.jsx polling) — keeps page in sync without its own poll
+  useEffect(() => {
+    if (Array.isArray(complaints) && complaints.length > 0) {
+      setComplaintList(complaints);
+      setIsLoadingInitial(false);
+    }
+  }, [complaints]);
+
   useEffect(() => {
     const fetchComplaints = async () => {
       setIsLoadingInitial(true);
@@ -70,7 +78,10 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
         setComplaintList(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Failed to fetch complaints:', error);
-        setComplaintList([]);
+        // If API fails and we have prop data, fall back to it
+        if (Array.isArray(complaints) && complaints.length > 0) {
+          setComplaintList(complaints);
+        }
       } finally {
         setIsLoadingInitial(false);
       }
@@ -163,7 +174,7 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
     setSelectedComplaint(complaint);
     setIsLoadingDetail(true);
     try {
-      const ack = complaint.acknowledgement_no;
+      const ack = complaint.acknowledgement_no || complaint.complaint_id;
       if (ack) {
         const res = await trackComplaint(ack);
         const data = res.data || res;
@@ -177,9 +188,19 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
   };
 
   const filtered = (Array.isArray(complaintList) ? complaintList : []).filter((c) => {
-    const cStatus = c.status || 'UNDER_INVESTIGATION';
-    const matchesStatus = selectedStatus === 'ALL' || cStatus.toUpperCase() === selectedStatus.toUpperCase();
-    return matchesStatus;
+    const cStatus = (c.status || 'submitted').toLowerCase();
+    const matchesStatus = selectedStatus === 'ALL' || cStatus === selectedStatus.toLowerCase();
+    if (!matchesStatus) return false;
+    
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      const ackNo = (c.acknowledgement_no || c.complaint_id || '').toLowerCase();
+      const cat = (c.fraud_category || c.crime_category || '').toLowerCase();
+      const dist = (c.district || '').toLowerCase();
+      const state = (c.state || '').toLowerCase();
+      return ackNo.includes(term) || cat.includes(term) || dist.includes(term) || state.includes(term);
+    }
+    return true;
   });
 
   return (
@@ -248,9 +269,9 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
                 style={{ fontSize: '0.75rem', padding: '5px 10px' }}
               >
                 <option value="ALL">All Statuses</option>
-                <option value="UNDER_INVESTIGATION">UNDER_INVESTIGATION</option>
-                <option value="PROCESSED">PROCESSED</option>
-                <option value="CLOSED">CLOSED</option>
+                <option value="submitted">submitted</option>
+                <option value="processed">processed</option>
+                <option value="closed">closed</option>
               </select>
             </div>
 
@@ -300,13 +321,15 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
               </tr>
             ) : (
               filtered.map((c) => {
-                const amountVal = c.fraud_amount || c.amount_lost || 0;
+                const amountVal = parseFloat(c.fraud_amount || c.amount || c.amount_lost || 0) || 0;
                 const contact = c.victim_contact || c.victim_phone || 'N/A';
                 const bank = c.mule_bank_name || c.victim_bank || 'Tracking Bank';
                 const acc = c.mule_account_no || 'IFSC Link Pending';
-                const district = c.district || 'Delhi';
+                const dist = c.district || 'Delhi';
                 const state = c.state || 'Delhi';
-                const status = c.status || 'UNDER_INVESTIGATION';
+                const status = c.status || 'submitted';
+                const isProcessed = status.toLowerCase() === 'processed';
+                const isClosed = status.toLowerCase() === 'closed';
 
                 return (
                   <tr
@@ -315,30 +338,30 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
                     style={{ cursor: 'pointer' }}
                     title="Click to inspect tactical intelligence and linked hotspot"
                   >
-                    <td><strong style={{ color: '#00e5ff' }}>{c.acknowledgement_no}</strong></td>
+                    <td><strong style={{ color: '#00e5ff' }}>{c.acknowledgement_no || c.complaint_id || `#${c.id}`}</strong></td>
                     <td>
                       <div style={{ fontWeight: 700, color: '#fff' }}>{c.victim_name || 'Citizen'}</div>
                       <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{contact}</div>
                     </td>
                     <td>
                       <span className="pulse-badge warning" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
-                        {c.fraud_category}
+                        {c.fraud_category || c.crime_category || 'Fraud'}
                       </span>
                     </td>
-                    <td style={{ color: '#00e676', fontWeight: 800 }}>₹{parseFloat(amountVal).toLocaleString()}</td>
+                    <td style={{ color: '#00e676', fontWeight: 800 }}>₹{amountVal.toLocaleString()}</td>
                     <td>
                       <div style={{ fontWeight: 600, color: '#fff' }}>{bank}</div>
                       <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{acc}</div>
                     </td>
-                    <td>{district}, {state}</td>
+                    <td>{dist}, {state}</td>
                     <td>
                       <span style={{
                         fontSize: '0.68rem',
-                        color: status === 'PROCESSED' ? '#00e676' : '#cbd5e1',
-                        background: status === 'PROCESSED' ? 'rgba(0,230,118,0.12)' : 'rgba(255,255,255,0.06)',
+                        color: isProcessed ? '#00e676' : isClosed ? '#94a3b8' : '#cbd5e1',
+                        background: isProcessed ? 'rgba(0,230,118,0.12)' : isClosed ? 'rgba(148,163,184,0.08)' : 'rgba(255,255,255,0.06)',
                         padding: '3px 8px',
                         borderRadius: '4px',
-                        border: status === 'PROCESSED' ? '1px solid rgba(0,230,118,0.25)' : 'none'
+                        border: isProcessed ? '1px solid rgba(0,230,118,0.25)' : 'none'
                       }}>
                         {status}
                       </span>

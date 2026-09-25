@@ -43,6 +43,32 @@ const DISTRICT_COORDS = {
 
 const DEFAULT_COORDS = { lat: 28.6139, lng: 77.2090, state: 'Delhi' }
 
+// ── State-level coordinate fallbacks (Fix 1B) ──
+// Handles complaints table latitude/longitude being null (NCRP portal may not always send them)
+function getDefaultLatForState(state) {
+  const defaults = {
+    'Delhi': 28.6139, 'Maharashtra': 19.0760, 'Telangana': 17.3850,
+    'Karnataka': 12.9716, 'Tamil Nadu': 13.0827, 'West Bengal': 22.5726,
+    'Uttar Pradesh': 26.8467, 'Rajasthan': 26.9124, 'Bihar': 25.5941,
+    'Jharkhand': 23.6102, 'Gujarat': 23.0225, 'Haryana': 29.0588,
+    'Punjab': 31.1471, 'Madhya Pradesh': 23.2599, 'Andhra Pradesh': 15.9129,
+    'Kerala': 10.8505, 'Odisha': 20.9517, 'Assam': 26.2006,
+  }
+  return defaults[state] || 20.5937  // India center as last fallback
+}
+
+function getDefaultLngForState(state) {
+  const defaults = {
+    'Delhi': 77.2090, 'Maharashtra': 72.8777, 'Telangana': 78.4867,
+    'Karnataka': 77.5946, 'Tamil Nadu': 80.2707, 'West Bengal': 88.3697,
+    'Uttar Pradesh': 80.9462, 'Rajasthan': 75.7873, 'Bihar': 85.1376,
+    'Jharkhand': 85.2799, 'Gujarat': 72.5714, 'Haryana': 76.0856,
+    'Punjab': 75.3412, 'Madhya Pradesh': 77.4126, 'Andhra Pradesh': 79.7400,
+    'Kerala': 76.2711, 'Odisha': 85.0985, 'Assam': 92.9376,
+  }
+  return defaults[state] || 78.9629  // India center as last fallback
+}
+
 // ─────────────────────────────────────────────────────────────
 // MAIN LOOP
 // ─────────────────────────────────────────────────────────────
@@ -68,28 +94,41 @@ async function processNewComplaints() {
     for (const complaint of complaints) {
       lastProcessedId = Math.max(lastProcessedId, complaint.id)
 
+      // ── Fix 1C: Map DB field names (complaints table columns differ from old naming) ──
+      const fraudCategory = complaint.crime_category || complaint.fraud_category || 'OTHER'
+      const fraudAmount   = parseFloat(complaint.amount || complaint.fraud_amount || 0)
+      const complaintDate = complaint.complaint_date || complaint.incident_timestamp || new Date().toISOString()
+      const ackNo         = complaint.complaint_id   || complaint.acknowledgement_no || String(complaint.id)
+      const stateVal      = complaint.state    || 'Unknown'
+      const districtVal   = complaint.district || 'Unknown'
+
+      // ── Fix 1B: Read latitude/longitude from complaints table columns ──
+      // NCRP portal may not always populate coordinates → fall back to state center
+      const victimLat = parseFloat(complaint.latitude) || getDefaultLatForState(stateVal)
+      const victimLng = parseFloat(complaint.longitude) || getDefaultLngForState(stateVal)
+
       let sessionData = null
-      let predictionLat = parseFloat(complaint.lat) || 28.6139
-      let predictionLng = parseFloat(complaint.lng) || 77.2090
-      let predictionState = complaint.state || 'Delhi'
-      let predictionDistrict = complaint.district || 'Central Delhi'
+      let predictionLat = victimLat
+      let predictionLng = victimLng
+      let predictionState = stateVal
+      let predictionDistrict = districtVal
       let sessionFeatures = {}
 
       // ── 2. Build features for YOUR XGBoost model ──────────
       let prediction
       try {
-        const incidentAt   = new Date(complaint.complaint_date)
+        const incidentAt   = new Date(complaintDate)
         const filedAt      = new Date(complaint.created_at)
         const filingLagMin = Math.max(0, (filedAt - incidentAt) / 60000)
-        const amount       = parseFloat(complaint.amount) || 10000
+        const amount       = fraudAmount || 10000
 
         if (complaint.transaction_id) {
           try {
             const sessionRes = await axios.post(`${SESSION_RESOLVER_URL}/resolve`, {
               transaction_id: complaint.transaction_id,
-              victim_lat: complaint.lat,
-              victim_lng: complaint.lng,
-              fraud_amount: complaint.amount
+              victim_lat: victimLat,
+              victim_lng: victimLng,
+              fraud_amount: fraudAmount
             }, { timeout: 5000 })
 
             if (sessionRes.data.success && sessionRes.data.session && sessionRes.data.session.session_status === 'ACTIVE') {
@@ -102,7 +141,7 @@ async function processNewComplaints() {
               sessionFeatures = sessionRes.data.ml_features || {}
 
               console.log(`[Engine] Session intercept → redirected prediction anchor:`)
-              console.log(`  From: ${complaint.district || 'unknown'}, ${complaint.state || 'unknown'}`)
+              console.log(`  From: ${districtVal}, ${stateVal}`)
               console.log(`  To:   ${predictionDistrict}, ${predictionState}`)
               console.log(`  Session: ${s.session_id} | Last active: ${s.last_activity_delta_minutes}m ago`)
             }
@@ -114,7 +153,7 @@ async function processNewComplaints() {
         // Feature names MUST match xgb_feature_names.json exactly.
         // If your feature names differ, update keys below to match.
         const features = {
-          complaint_id:          complaint.complaint_id,
+          complaint_id:          ackNo,
           hour_of_fraud:         incidentAt.getHours(),
           day_of_week:           incidentAt.getDay(),
           month:                 incidentAt.getMonth() + 1,
@@ -136,9 +175,9 @@ async function processNewComplaints() {
           is_hot_chain:          0,
           velocity_per_min:      parseFloat((amount / Math.max(1, filingLagMin)).toFixed(2)),
           // Category encoding
-          fraud_type_enc:        getFraudTypeCode(complaint.crime_category),
+          fraud_type_enc:        getFraudTypeCode(fraudCategory),
           bank_enc:              0,   // unknown at filing time
-          victim_state_enc:      getStateCode(complaint.state),
+          victim_state_enc:      getStateCode(stateVal),
           // NCRB state-level risk priors (from your ncrb_state_priors_used.csv)
           state_weight:          0.028,
           crime_rate_norm:       5.2,
@@ -177,7 +216,7 @@ async function processNewComplaints() {
 
       } catch (mlErr) {
         console.warn(`[Engine] ML unreachable (${mlErr.message}) — using rule-based fallback`)
-        prediction = ruleBasedFallback(complaint)
+        prediction = ruleBasedFallback(fraudCategory, fraudAmount)
       }
 
       // ── 3. Derive final alert fields ──────────────────────
@@ -218,25 +257,26 @@ async function processNewComplaints() {
 
       // ── 7. Build actionable intelligence text ─────────────
       const intelligence =
-        `[${alertLevel}] ${(complaint.crime_category || complaint.fraud_category || 'Cybercrime')} detected. ` +
+        `[${alertLevel}] ${fraudCategory} detected. ` +
         `Predicted cashout zone: ${district}, ${coords.state}. ` +
         `Risk score: ${(riskScore * 100).toFixed(0)}%. ` +
-        `Fraud amount: ${Number(complaint.amount).toLocaleString('en-IN')}. ` +
-        `Complaint: ${complaint.complaint_id}. ` +
+        `Fraud amount: ₹${Number(fraudAmount).toLocaleString('en-IN')}. ` +
+        `Complaint: ${ackNo}. ` +
         (sessionNote ? `${sessionNote} ` : '') +
         `Deploy response units to ATM cluster within ${windowMins} minutes. ` +
         `Alert local banks to freeze suspicious transactions.`
 
       // ── 8. Insert predicted hotspot ───────────────────────
-      const now     = new Date()
-      const winEnd  = new Date(now.getTime() + windowMins * 60000)
-      const winStart = new Date(now.getTime() + 15 * 60000)
+      // Fix 1E: Always set window times relative to NOW() — NOT complaint_date
+      const now      = new Date()
+      const winStart = new Date(now.getTime() + 15 * 60000)         // 15 min from now
+      const winEnd   = new Date(now.getTime() + windowMins * 60000) // P1=60m, P2=90m, P3=120m
 
       const { error: insertError } = await supabase
         .from('predicted_hotspots')
         .insert([{
           model_run_id:                modelRuns?.[0]?.id || 1,
-          complaint_id:                complaint.id,
+          complaint_id:                complaint.id,            // Fix 1D: bigint PK, NOT complaint_id text
           cluster_id:                  prediction.cluster_id || Math.floor(Math.random() * 100),
           center_geom:                 `SRID=4326;POINT(${coords.lng} ${coords.lat})`,
           lat:                         coords.lat,
@@ -244,9 +284,9 @@ async function processNewComplaints() {
           radius_meters:               Math.max(500, Math.round(3000 * riskScore)),
           risk_score:                  riskScore,
           alert_level:                 alertLevel,
-          top_fraud_category:          complaint.crime_category,
+          top_fraud_category:          fraudCategory,
           total_complaints_in_cluster: 1,
-          total_fraud_volume:          parseFloat(complaint.amount),
+          total_fraud_volume:          fraudAmount,
           predicted_window_start:      winStart.toISOString(),
           predicted_window_end:        winEnd.toISOString(),
           atm_location_id:             atms?.[0]?.id || null,
@@ -285,7 +325,7 @@ async function processNewComplaints() {
 // Produces realistic predictions even if ML service is down.
 // Demo never breaks.
 // ─────────────────────────────────────────────────────────────
-function ruleBasedFallback(complaint) {
+function ruleBasedFallback(fraudCategory, amount) {
   const MAP = {
     'UPI_FRAUD':        { district: 'Rohini',     score: 0.82 },
     'KYC_SCAM':         { district: 'Hyderabad',  score: 0.74 },
@@ -298,8 +338,8 @@ function ruleBasedFallback(complaint) {
     'OTHER':            { district: 'Central Delhi', score: 0.55 },
   }
 
-  const m     = MAP[complaint.crime_category] || MAP['OTHER']
-  const amt   = parseFloat(complaint.amount) || 10000
+  const m     = MAP[fraudCategory] || MAP['OTHER']
+  const amt   = parseFloat(amount) || 10000
   const mult  = Math.min(1.15, Math.log10(amt) / 5)
   const score = Math.min(0.97, m.score * mult)
 

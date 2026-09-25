@@ -13,13 +13,12 @@ import {
   Volume2,
   ShieldCheck
 } from 'lucide-react';
-import { MOCK_ALERTS_STREAM } from '../data/mockData';
 import { supabase } from '../services/realtimeClient';
 
 const API = import.meta.env.VITE_API_BASE_URL || 'https://sih2026-backend-k5ru.onrender.com/api';
 
 export default function AlertsCenterPage({ hotspots = [], setHotspots, stats = {} }) {
-  const initialAlerts = Array.isArray(hotspots) ? hotspots : hotspots?.data || MOCK_ALERTS_STREAM;
+  const initialAlerts = Array.isArray(hotspots) ? hotspots : (hotspots?.data || []);
   const [localHotspots, setLocalHotspots] = useState(initialAlerts);
   const [selectedTier, setSelectedTier] = useState('ALL');
   const [broadcastLog, setBroadcastLog] = useState(null);
@@ -48,7 +47,22 @@ export default function AlertsCenterPage({ hotspots = [], setHotspots, stats = {
             return [newAlert, ...list];
           });
           if (newAlert.alert_level === 'P1') {
+            // Play audio alert
             new Audio('/alert.mp3').play().catch(() => {});
+            // Browser Notification for P1
+            if ('Notification' in window) {
+              const showNotif = () => {
+                new Notification('⚠️ TRINETRA P1 Alert', {
+                  body: `${newAlert.district || 'Zone'}, ${newAlert.state || 'India'} — ${newAlert.top_fraud_category || 'Cybercrime'}`,
+                  icon: '/favicon.ico',
+                });
+              };
+              if (Notification.permission === 'granted') {
+                showNotif();
+              } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission().then((p) => { if (p === 'granted') showNotif(); });
+              }
+            }
           }
         }
       )
@@ -62,34 +76,44 @@ export default function AlertsCenterPage({ hotspots = [], setHotspots, stats = {
   }, []);
 
   const handleAcknowledge = async (id) => {
+    // Optimistic update
+    const previous = localHotspots;
+    setLocalHotspots((prev) =>
+      (Array.isArray(prev) ? prev : []).map((h) =>
+        h.id === id ? { ...h, status: 'ACKNOWLEDGED' } : h
+      )
+    );
+    if (setHotspots) {
+      setHotspots((prev) =>
+        (Array.isArray(prev) ? prev : prev?.data || []).map((h) =>
+          h.id === id ? { ...h, status: 'ACKNOWLEDGED' } : h
+        )
+      );
+    }
     try {
       const res = await fetch(`${API}/predictions/${id}/acknowledge`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ officer_name: 'Dashboard Operator' }),
       });
-      if (res.ok) {
-        setLocalHotspots((prev) =>
-          (Array.isArray(prev) ? prev : []).map((h) =>
-            h.id === id ? { ...h, status: 'ACKNOWLEDGED' } : h
-          )
-        );
-        if (setHotspots) {
-          setHotspots((prev) =>
-            (Array.isArray(prev) ? prev : prev?.data || []).map((h) =>
-              h.id === id ? { ...h, status: 'ACKNOWLEDGED' } : h
-            )
-          );
-        }
-        setBroadcastLog(`✅ Hotspot alert #${id} acknowledged and logged in system audit.`);
-        setTimeout(() => setBroadcastLog(null), 3500);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setBroadcastLog(`✅ Hotspot alert #${id} acknowledged and logged in system audit.`);
+      setTimeout(() => setBroadcastLog(null), 3500);
     } catch (e) {
       console.error('Failed to acknowledge alert:', e);
+      // Revert on failure (optimistic update revert)
+      setLocalHotspots(previous);
+      if (setHotspots) {
+        setHotspots((prev) =>
+          (Array.isArray(prev) ? prev : prev?.data || []).map((h) =>
+            h.id === id ? { ...h, status: 'ACTIVE' } : h
+          )
+        );
+      }
     }
   };
 
-  const filteredAlerts = (Array.isArray(localHotspots) && localHotspots.length > 0 ? localHotspots : MOCK_ALERTS_STREAM).filter((a) => {
+  const filteredAlerts = (Array.isArray(localHotspots) ? localHotspots : []).filter((a) => {
     const tier = a.alert_level || a.alert_tier || a.tier || 'P1';
     if (selectedTier !== 'ALL' && tier !== selectedTier) return false;
     return true;

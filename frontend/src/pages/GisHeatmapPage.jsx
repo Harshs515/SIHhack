@@ -44,11 +44,11 @@ const STATE_CENTERS = {
 };
 
 function getHotspotLat(h) {
-  return parseFloat(h.atm_lat || h.center_latitude || 0);
+  return parseFloat(h.lat || h.atm_lat || h.center_latitude || 0);
 }
 
 function getHotspotLng(h) {
-  return parseFloat(h.atm_lng || h.center_longitude || 0);
+  return parseFloat(h.lng || h.atm_lng || h.center_longitude || 0);
 }
 
 function unwrapHotspots(value) {
@@ -549,10 +549,22 @@ export default function GisHeatmapPage({ complaints = [], hotspots = [], atms = 
                         </span>
                       </div>
                       <strong>Target Cashout ATM:</strong> {h.atm_bank || h.bank_name || 'Bank ATM'} ({h.predicted_atm_id || h.atm_id || 'Target'})<br/>
-                      <b>Location:</b> {h.atm_address || h.address || 'Jurisdiction Target'}<br/>
+                      <b>Location:</b> {h.atm_address || h.address || h.district || 'Jurisdiction Target'}<br/>
                       <b>Withdrawal Probability:</b> {(parseFloat(h.risk_score || 0.85) * 100).toFixed(1)}%<br/>
                       <b>Cluster Volume:</b> ₹{parseFloat(h.amount || h.total_fraud_volume || 0).toLocaleString()}<br/>
                       <b>Golden Hour Window:</b> {h.time_window || 'Next 45-60 min'}<br/>
+                      {/* Change 6: Show session intercept details when prediction_source === 'SESSION_INTERCEPT' */}
+                      {h.prediction_source === 'SESSION_INTERCEPT' && (
+                        <>
+                          <hr style={{ margin: '6px 0', borderColor: 'rgba(0,229,255,0.3)' }} />
+                          <div style={{ fontSize: '0.74rem', color: '#00e5ff' }}>
+                            <b>⚡ Session Intercept:</b><br/>
+                            Session ID: <strong>{h.session_id || 'N/A'}</strong><br/>
+                            Status: <strong>{h.session_status || 'ACTIVE'}</strong><br/>
+                            Last Activity: <strong>{h.last_session_activity_minutes ?? h.last_activity_delta_minutes ?? '—'} min ago</strong>
+                          </div>
+                        </>
+                      )}
                       <hr style={{ margin: '8px 0', borderColor: 'rgba(255,255,255,0.1)' }} />
                       <p style={{ fontSize: '0.76rem', color: '#cbd5e1', lineHeight: '1.4', margin: '0 0 8px 0' }}>
                         {h.actionable_intelligence || 'Proactive police patrol deployment recommended.'}

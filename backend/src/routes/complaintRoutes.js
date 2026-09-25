@@ -63,10 +63,11 @@ function mapComplaint(row, fallbackLat, fallbackLng) {
   return {
     ...row,
 
-    // Map database fields to frontend expectations
+    // Map database fields to frontend expectations (Fix 2A)
     acknowledgement_no: row.complaint_id || rawData.acknowledgement_no || row.id,
     fraud_category: row.crime_category || rawData.fraud_category || 'Unknown Fraud',
-    fraud_amount: row.amount || rawData.fraud_amount || rawData.amount_lost || 0,
+    fraud_amount: parseFloat(row.amount || rawData.fraud_amount || rawData.amount_lost || 0) || 0,
+    incident_timestamp: row.complaint_date || rawData.incident_timestamp || row.created_at,
     
     // Extract victim details from raw_reference
     victim_name: rawData.victim_name || 'Unknown',
@@ -78,6 +79,9 @@ function mapComplaint(row, fallbackLat, fallbackLng) {
 
     latitude,
     longitude,
+    // Also expose as lat/lng for map components
+    lat: latitude,
+    lng: longitude,
 
     district:
       row.district ||
@@ -98,7 +102,7 @@ function mapComplaint(row, fallbackLat, fallbackLng) {
 // ==================================================
 router.get('/', async (req, res) => {
   try {
-    const { search, limit } = req.query;
+    const { search, limit, status } = req.query;
 
     let query = supabase
       .from('complaints')
@@ -107,18 +111,20 @@ router.get('/', async (req, res) => {
         ascending: false,
       });
 
-    // Apply search filter if provided
+    // Apply status filter if provided (Fix 2B)
+    if (status && status.trim() && status.toUpperCase() !== 'ALL') {
+      query = query.eq('status', status.trim());
+    }
+
+    // Apply search filter if provided — use actual complaints table column names
     if (search && search.trim()) {
       const searchTerm = search.trim().toLowerCase();
       query = query.or(
-        `acknowledgement_no.ilike.%${searchTerm}%,` +
-        `victim_name.ilike.%${searchTerm}%,` +
-        `victim_phone.ilike.%${searchTerm}%,` +
-        `victim_contact.ilike.%${searchTerm}%,` +
-        `fraud_category.ilike.%${searchTerm}%,` +
-        `mule_bank_name.ilike.%${searchTerm}%,` +
+        `complaint_id.ilike.%${searchTerm}%,` +
+        `crime_category.ilike.%${searchTerm}%,` +
         `district.ilike.%${searchTerm}%,` +
-        `state.ilike.%${searchTerm}%`
+        `state.ilike.%${searchTerm}%,` +
+        `city.ilike.%${searchTerm}%`
       );
     }
 
@@ -167,7 +173,7 @@ router.get('/:ackNo', async (req, res) => {
       .from('complaints')
       .select('*')
       .eq(
-        'acknowledgement_no',
+        'complaint_id',   // Fix 2C: use complaint_id column (text ack number)
         req.params.ackNo
       )
       .maybeSingle();

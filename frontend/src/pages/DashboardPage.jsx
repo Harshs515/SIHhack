@@ -650,21 +650,27 @@ export default function DashboardPage({
   const totalFraud = useMemo(
     () =>
       filteredComplaints.reduce(
-        (s, c) => s + (parseFloat(c.fraud_amount) || 0),
+        (s, c) => s + (parseFloat(c.fraud_amount || c.amount || 0) || 0),
         0,
       ),
     [filteredComplaints],
   );
 
   /* ──────────────────────────────────────────────────────────────
-     Hotspot Statistics
+     Hotspot Statistics — use stats prop from backend, computed as fallback
   ────────────────────────────────────────────────────────────── */
 
-  const p1Count = hotspots.filter((h) => h.alert_tier === "P1").length;
+  // Handle both flat stats and nested alerts stats shapes
+  const liveStats = stats?.alerts || stats || {};
 
-  const p2Count = hotspots.filter((h) => h.alert_tier === "P2").length;
+  const p1Count = liveStats.p1_active ??
+    (hotspots || []).filter((h) => (h.alert_level || h.alert_tier) === 'P1').length;
 
-  const p3Count = Math.max(hotspots.length - p1Count - p2Count, 1);
+  const p2Count = liveStats.p2_active ??
+    (hotspots || []).filter((h) => (h.alert_level || h.alert_tier) === 'P2').length;
+
+  const p3Count = liveStats.p3_active ??
+    Math.max((hotspots || []).length - p1Count - p2Count, 0);
 
   /* ──────────────────────────────────────────────────────────────
      Other Dashboard Data

@@ -213,10 +213,10 @@ function AppContent({
 
 export default function App() {
   const [stats, setStats] = useState({});
-  const [complaints, setComplaints] = useState(MOCK_COMPLAINTS);
-  const [hotspots, setHotspots] = useState(MOCK_HOTSPOTS);
-  const [atms, setAtms] = useState(MOCK_ATMS);
-  const [policeStations, setPoliceStations] = useState(MOCK_POLICE_STATIONS);
+  const [complaints, setComplaints] = useState([]);
+  const [hotspots, setHotspots] = useState([]);
+  const [atms, setAtms] = useState([]);
+  const [policeStations, setPoliceStations] = useState([]);
   const [modelRuns, setModelRuns] = useState([]);
   const [isRunningML, setIsRunningML] = useState(false);
   const [mlStatus, setMlStatus] = useState("ACTIVE");
