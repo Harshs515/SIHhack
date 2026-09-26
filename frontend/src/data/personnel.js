@@ -130,5 +130,18 @@ export function findPersonnelByBadge(roster, badge) {
 export function verifyPersonnelPin(person, pin) {
   if (!person) return false;
   const entered = String(pin || "").trim();
-  return entered === person.pin;
+  if (!entered) return false;
+
+  // Exact match against stored pin
+  if (entered === person.pin) return true;
+
+  // Numeric match (handles leading-zero pins: "0892" vs "892")
+  if (Number(entered) === Number(person.pin)) return true;
+
+  // Fallback: last 4 digits of the badge (what the UI hint says)
+  const badgeSuffix = String(person.badge || "").replace(/\D/g, "").slice(-4);
+  if (badgeSuffix && entered === badgeSuffix) return true;
+  if (badgeSuffix && Number(entered) === Number(badgeSuffix)) return true;
+
+  return false;
 }

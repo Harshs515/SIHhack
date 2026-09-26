@@ -1,5 +1,6 @@
 import { supabase } from "../api/supabaseClient";
 import { useState, useEffect, createContext } from "react";
+import { getSession } from "../utils/session";
 
 export const AuthContext = createContext();
 
@@ -8,15 +9,26 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Fetch current session
+        // First, check local personnel session (badge-based login)
+        const localSession = getSession();
+        if (localSession?.profile) {
+            setUser(localSession.profile);
+            setLoading(false);
+            return;
+        }
+
+        // Fall back to Supabase session
         supabase.auth.getSession().then(({ data: { session } }) => {
             setUser(session?.user || null);
             setLoading(false);
         });
 
-        // Listen for auth changes
+        // Listen for Supabase auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user || null);
+            // Only update from Supabase if there's no local session active
+            if (!getSession()?.profile) {
+                setUser(session?.user || null);
+            }
             setLoading(false);
         });
 
