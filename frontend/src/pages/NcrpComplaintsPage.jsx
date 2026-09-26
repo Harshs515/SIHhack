@@ -276,13 +276,13 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
         <table className="cyber-table">
           <thead>
             <tr>
-              <th>Ack Number</th>
-              <th>Victim Details</th>
-              <th>Fraud Typology</th>
+              <th>Complaint ID</th>
+              <th>Date & Time</th>
+              <th>Crime Category</th>
+              <th>Sub Category</th>
               <th>Amount Stolen</th>
-              <th>Mule Account & Bank</th>
               <th>Location</th>
-              <th>Status</th>
+              <th>Source & Status</th>
             </tr>
           </thead>
           <tbody>
@@ -300,47 +300,57 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
               </tr>
             ) : (
               filtered.map((c) => {
-                const amountVal = c.fraud_amount || c.amount_lost || 0;
-                const contact = c.victim_contact || c.victim_phone || 'N/A';
-                const bank = c.mule_bank_name || c.victim_bank || 'Tracking Bank';
-                const acc = c.mule_account_no || 'IFSC Link Pending';
-                const district = c.district || 'Delhi';
-                const state = c.state || 'Delhi';
+                const amountVal = c.amount || c.fraud_amount || 0;
+                // const contact = c.victim_contact || c.victim_phone || 'N/A';
+                // const bank = c.mule_bank_name || c.victim_bank || 'Tracking Bank';
+                // const acc = c.mule_account_no || 'IFSC Link Pending';
+                const district = c.district || 'Unknown';
+                const state = c.state || 'Unknown';
                 const status = c.status || 'UNDER_INVESTIGATION';
+                const dateObj = new Date(c.complaint_date || c.created_at);
+                const formattedDate = dateObj.toLocaleDateString();
+                const formattedTime = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
                 return (
                   <tr
-                    key={c.id || c.acknowledgement_no}
+                    key={c.id || c.complaint_id}
                     onClick={() => handleRowClick(c)}
                     style={{ cursor: 'pointer' }}
-                    title="Click to inspect tactical intelligence and linked hotspot"
+                    title="Click to view details"
                   >
-                    <td><strong style={{ color: '#00e5ff' }}>{c.acknowledgement_no}</strong></td>
+                    <td><strong style={{ color: '#00e5ff' }}>{c.complaint_id || c.acknowledgement_no}</strong></td>
                     <td>
-                      <div style={{ fontWeight: 700, color: '#fff' }}>{c.victim_name || 'Citizen'}</div>
-                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{contact}</div>
+                      <div style={{ fontWeight: 600, color: '#fff' }}>{formattedDate}</div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{formattedTime}</div>
                     </td>
                     <td>
-                      <span className="pulse-badge warning" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
-                        {c.fraud_category}
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#fff' }}>
+                        {c.crime_category || c.fraud_category || 'N/A'}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                        {c.sub_category || 'N/A'}
                       </span>
                     </td>
                     <td style={{ color: '#00e676', fontWeight: 800 }}>₹{parseFloat(amountVal).toLocaleString()}</td>
                     <td>
-                      <div style={{ fontWeight: 600, color: '#fff' }}>{bank}</div>
-                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{acc}</div>
+                      <div style={{ fontWeight: 600, color: '#fff' }}>{c.city ? `${c.city}, ` : ''}{district}</div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{state}</div>
                     </td>
-                    <td>{district}, {state}</td>
                     <td>
+                      <div style={{ fontSize: '0.68rem', color: '#cbd5e1', marginBottom: '4px' }}>
+                        Source: {c.source || 'NCRP'}
+                      </div>
                       <span style={{
-                        fontSize: '0.68rem',
-                        color: status === 'PROCESSED' ? '#00e676' : '#cbd5e1',
-                        background: status === 'PROCESSED' ? 'rgba(0,230,118,0.12)' : 'rgba(255,255,255,0.06)',
+                        fontSize: '0.65rem',
+                        color: status.toUpperCase() === 'PROCESSED' ? '#00e676' : '#cbd5e1',
+                        background: status.toUpperCase() === 'PROCESSED' ? 'rgba(0,230,118,0.12)' : 'rgba(255,255,255,0.06)',
                         padding: '3px 8px',
                         borderRadius: '4px',
-                        border: status === 'PROCESSED' ? '1px solid rgba(0,230,118,0.25)' : 'none'
+                        border: status.toUpperCase() === 'PROCESSED' ? '1px solid rgba(0,230,118,0.25)' : 'none'
                       }}>
-                        {status}
+                        {status.toUpperCase()}
                       </span>
                     </td>
                   </tr>
@@ -373,7 +383,7 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
                   {selectedComplaint.status || 'UNDER_INVESTIGATION'}
                 </span>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff' }}>
-                  Complaint Dossier: {selectedComplaint.acknowledgement_no}
+                  Complaint Dossier: {selectedComplaint.complaint_id || selectedComplaint.acknowledgement_no}
                 </h3>
               </div>
               <button onClick={() => setSelectedComplaint(null)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.2rem' }}>
@@ -383,23 +393,33 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.8rem' }}>
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '8px' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>COMPLAINANT TYPE & SOURCE</span>
+                <div style={{ fontWeight: 700, color: '#fff', textTransform: 'capitalize' }}>
+                  {selectedComplaint.complainant_type || 'Citizen'}
+                </div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.72rem' }}>Source: {selectedComplaint.source || 'NCRP Portal'}</div>
+              </div>
+              {/* <div> 
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>VICTIM NAME</span>
                 <div style={{ fontWeight: 700, color: '#fff' }}>{selectedComplaint.victim_name || 'Citizen'}</div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: '0.72rem' }}>{selectedComplaint.victim_contact || selectedComplaint.victim_phone}</div>
-              </div>
+                </div> */}
 
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '8px' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>FRAUD AMOUNT</span>
                 <div style={{ fontWeight: 800, color: '#00e676', fontSize: '1.05rem' }}>
-                  ₹{parseFloat(selectedComplaint.fraud_amount || selectedComplaint.amount_lost || 0).toLocaleString()}
+                  ₹{parseFloat(selectedComplaint.amount || selectedComplaint.fraud_amount || 0).toLocaleString()}
                 </div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>{selectedComplaint.fraud_category}</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>{new Date(selectedComplaint.complaint_date || selectedComplaint.created_at).toLocaleString()}</div>
               </div>
 
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '8px' }}>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>MULE BENEFICIARY BANK</span>
-                <div style={{ fontWeight: 700, color: '#ffaa00' }}>{selectedComplaint.mule_bank_name || selectedComplaint.victim_bank || 'SBI'}</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>A/C: {selectedComplaint.mule_account_no || '3098129841'}</div>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>CRIME TYPOLOGY</span>
+                <div style={{ fontWeight: 700, color: '#ffaa00' }}>
+                  {selectedComplaint.crime_category || selectedComplaint.fraud_category || 'Unknown'}
+                </div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                  Sub: {selectedComplaint.sub_category || 'N/A'}
+                </div>
               </div>
 
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '8px' }}>

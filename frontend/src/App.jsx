@@ -21,6 +21,7 @@ import AlertsCenterPage from "./pages/AlertsCenterPage";
 import NcrpComplaintsPage from "./pages/NcrpComplaintsPage";
 import AuthLandingPage from "./pages/AuthLandingPage";
 import AnalyticsReportsPage from "./pages/AnalyticsReportsPage";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 import {
   getAtms,
@@ -29,6 +30,7 @@ import {
   getPoliceStations,
   getModelRuns,
   triggerPredictions,
+  API_BASE_URL,
 } from "./api/api";
 
 // Domain Intelligence Mock Data
@@ -39,7 +41,7 @@ import {
   MOCK_POLICE_STATIONS,
 } from "./data/mockData";
 
-const API = import.meta.env.VITE_API_BASE_URL || 'https://sih2026-backend-k5ru.onrender.com/api';
+const API = API_BASE_URL;
 
 function AppContent({
   isRunningML,
@@ -100,18 +102,20 @@ function AppContent({
             <Route
               path="/dashboard"
               element={
-                <DashboardPage
-                  complaints={complaints}
-                  hotspots={hotspots}
-                  atms={atms}
-                  policeStations={policeStations}
-                  isRunningML={isRunningML}
-                  onTriggerML={handleTriggerML}
-                  mlStatus={mlStatus}
-                  modelRuns={modelRuns}
-                  stats={stats}
-                  onRefreshData={loadAllData}
-                />
+                <ProtectedRoute>
+                  <DashboardPage
+                    complaints={complaints}
+                    hotspots={hotspots}
+                    atms={atms}
+                    policeStations={policeStations}
+                    isRunningML={isRunningML}
+                    onTriggerML={handleTriggerML}
+                    mlStatus={mlStatus}
+                    modelRuns={modelRuns}
+                    stats={stats}
+                    onRefreshData={loadAllData}
+                  />
+                </ProtectedRoute>
               }
             />
 
@@ -137,14 +141,16 @@ function AppContent({
             <Route
               path="/gis-heatmap"
               element={
-                <GisHeatmapPage
-                  complaints={complaints}
-                  hotspots={hotspots}
-                  setHotspots={setHotspots}
-                  atms={atms}
-                  policeStations={policeStations}
-                  stats={stats}
-                />
+                <ProtectedRoute>
+                  <GisHeatmapPage
+                    complaints={complaints}
+                    hotspots={hotspots}
+                    setHotspots={setHotspots}
+                    atms={atms}
+                    policeStations={policeStations}
+                    stats={stats}
+                  />
+                </ProtectedRoute>
               }
             />
 
@@ -154,11 +160,13 @@ function AppContent({
             <Route
               path="/lea-interface"
               element={
-                <LeaInterfacePage
-                  hotspots={hotspots}
-                  setHotspots={setHotspots}
-                  stats={stats}
-                />
+                <ProtectedRoute>
+                  <LeaInterfacePage
+                    hotspots={hotspots}
+                    setHotspots={setHotspots}
+                    stats={stats}
+                  />
+                </ProtectedRoute>
               }
             />
 
@@ -166,11 +174,13 @@ function AppContent({
             <Route
               path="/alerts-center"
               element={
-                <AlertsCenterPage
-                  hotspots={hotspots}
-                  setHotspots={setHotspots}
-                  stats={stats}
-                />
+                <ProtectedRoute>
+                  <AlertsCenterPage
+                    hotspots={hotspots}
+                    setHotspots={setHotspots}
+                    stats={stats}
+                  />
+                </ProtectedRoute>
               }
             />
 
@@ -178,10 +188,12 @@ function AppContent({
             <Route
               path="/ncrp-complaints"
               element={
-                <NcrpComplaintsPage
-                  complaints={complaints}
-                  onAddComplaint={handleAddComplaint}
-                />
+                <ProtectedRoute>
+                  <NcrpComplaintsPage
+                    complaints={complaints}
+                    onAddComplaint={handleAddComplaint}
+                  />
+                </ProtectedRoute>
               }
             />
 
@@ -190,7 +202,11 @@ function AppContent({
             {/* 8. Executive Analytics & I4C Dossier Reports */}
             <Route
               path="/analytics-reports"
-              element={<AnalyticsReportsPage />}
+              element={
+                <ProtectedRoute>
+                  <AnalyticsReportsPage />
+                </ProtectedRoute>
+              }
             />
 
             {/* 9. Field Officer Portal (temporarily disabled) */}
@@ -317,24 +333,22 @@ export default function App() {
   };
 
   return (
-    <BrowserRouter>
-      <AppContent
-        isRunningML={isRunningML}
-        handleTriggerML={handleTriggerML}
-        theme={theme}
-        toggleTheme={toggleTheme}
-        hotspots={hotspots}
-        setHotspots={setHotspots}
-        complaints={complaints}
-        setComplaints={setComplaints}
-        atms={atms}
-        policeStations={policeStations}
-        mlStatus={mlStatus}
-        modelRuns={modelRuns}
-        stats={stats}
-        loadAllData={loadAllData}
-        handleAddComplaint={handleAddComplaint}
-      />
-    </BrowserRouter>
+    <AppContent
+      isRunningML={isRunningML}
+      handleTriggerML={handleTriggerML}
+      theme={theme}
+      toggleTheme={toggleTheme}
+      hotspots={hotspots}
+      setHotspots={setHotspots}
+      complaints={complaints}
+      setComplaints={setComplaints}
+      atms={atms}
+      policeStations={policeStations}
+      mlStatus={mlStatus}
+      modelRuns={modelRuns}
+      stats={stats}
+      loadAllData={loadAllData}
+      handleAddComplaint={handleAddComplaint}
+    />
   );
 }
