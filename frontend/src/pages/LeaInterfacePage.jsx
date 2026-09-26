@@ -12,7 +12,8 @@ import {
   FileCheck2,
   Navigation,
   CheckCircle2,
-  Car
+  Car,
+  Search
 } from 'lucide-react';
 import { MOCK_HOTSPOTS } from '../data/mockData';
 
@@ -57,6 +58,9 @@ export default function LeaInterfacePage({ hotspots = [], setHotspots, stats = {
 
   const [incidents, setIncidents] = useState(() => parseHotspots(hotspots));
   const [selectedIncident, setSelectedIncident] = useState(incidents[0] || null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
   const [dispatchAlert, setDispatchAlert] = useState(null);
   const [, setTick] = useState(0);
 
@@ -141,6 +145,38 @@ export default function LeaInterfacePage({ hotspots = [], setHotspots, stats = {
     }
   };
 
+  const filteredIncidents = (Array.isArray(incidents) ? incidents : []).filter((item) => {
+    if (!searchTerm.trim()) return true;
+    const q = searchTerm.toLowerCase();
+    const bankName = (item.bank_name || '').toLowerCase();
+    const atmId = (item.atm_id || '').toLowerCase();
+    const clusterId = String(item.cluster_id || item.id || '').toLowerCase();
+    const district = (item.district || '').toLowerCase();
+    const state = (item.state || '').toLowerCase();
+    const station = (item.police_station_name || '').toLowerCase();
+    const team = (item.assigned_team || '').toLowerCase();
+    const tier = (item.alert_tier || '').toLowerCase();
+    const status = (item.dispatch_status || '').toLowerCase();
+    const intel = (item.actionable_intelligence || '').toLowerCase();
+
+    return (
+      bankName.includes(q) ||
+      atmId.includes(q) ||
+      clusterId.includes(q) ||
+      district.includes(q) ||
+      state.includes(q) ||
+      station.includes(q) ||
+      team.includes(q) ||
+      tier.includes(q) ||
+      status.includes(q) ||
+      intel.includes(q)
+    );
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filteredIncidents.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedIncidents = filteredIncidents.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '12px 24px 28px' }}>
       {/* Page Header */}
@@ -167,11 +203,25 @@ export default function LeaInterfacePage({ hotspots = [], setHotspots, stats = {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '16px', minHeight: 0 }}>
         {/* Left: Dispatch Queue Table */}
         <div className="glass-panel" style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ fontSize: '0.96rem', fontWeight: 800, color: '#fff' }}>
-              Active Incident Dispatch Queue ({incidents.length} High-Risk Targets)
-            </h3>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Auto-refreshed every 20s</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <h3 style={{ fontSize: '0.96rem', fontWeight: 800, color: '#fff' }}>
+                Active Incident Dispatch Queue ({filteredIncidents.length} Targets)
+              </h3>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Auto-refreshed every 20s</span>
+            </div>
+
+            <div style={{ position: 'relative', width: '240px' }}>
+              <Search size={14} color="var(--text-muted)" style={{ position: 'absolute', left: '10px', top: '10px' }} />
+              <input
+                type="text"
+                placeholder="Search ATM, Station, District..."
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                className="cyber-input"
+                style={{ width: '100%', paddingLeft: '32px', fontSize: '0.78rem' }}
+              />
+            </div>
           </div>
 
           <div style={{ overflowX: 'auto' }}>
@@ -189,66 +239,178 @@ export default function LeaInterfacePage({ hotspots = [], setHotspots, stats = {
                 </tr>
               </thead>
               <tbody>
-                {incidents.map((item) => (
-                  <tr
-                    key={item.id}
-                    onClick={() => setSelectedIncident(item)}
-                    style={{
-                      cursor: 'pointer',
-                      background: selectedIncident?.id === item.id ? 'rgba(0, 229, 255, 0.08)' : 'transparent'
-                    }}
-                  >
-                    <td>
-                      <div style={{ fontWeight: 700, color: '#fff' }}>{item.bank_name}</div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{item.atm_id} ({item.cluster_id || item.id})</div>
-                    </td>
-                    <td>{item.district}, {item.state}</td>
-                    <td style={{ color: '#00e676', fontWeight: 800 }}>
-                      ₹{item.total_fraud_volume ? (item.total_fraud_volume / 100000).toFixed(1) + 'L' : '8.5L'}
-                    </td>
-                    <td>
-                      <span className={`pulse-badge ${item.alert_tier === 'P1' ? 'danger' : 'warning'}`}>
-                        {item.alert_tier}
-                      </span>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '0.72rem', color: '#00e5ff', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Clock size={11} /> {getTimeRemaining(item.predicted_window_end)}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ fontSize: '0.76rem', color: '#93c5fd' }}>{item.police_station_name}</div>
-                      <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>{item.police_contact}</div>
-                    </td>
-                    <td>
-                      <span style={{
-                        fontSize: '0.7rem',
-                        fontWeight: 800,
-                        padding: '3px 8px',
-                        borderRadius: '4px',
-                        background: item.dispatch_status === 'ON_SCENE' ? 'rgba(0, 230, 118, 0.2)' : item.dispatch_status === 'DISPATCHED' ? 'rgba(0, 229, 255, 0.2)' : 'rgba(255, 170, 0, 0.2)',
-                        color: item.dispatch_status === 'ON_SCENE' ? '#00e676' : item.dispatch_status === 'DISPATCHED' ? '#00e5ff' : '#ffaa00'
-                      }}>
-                        {item.dispatch_status}
-                      </span>
-                    </td>
-                    <td>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleUpdateStatus(item.id, 'DISPATCHED');
-                        }}
-                        className="cyber-btn"
-                        style={{ padding: '4px 8px', fontSize: '0.7rem' }}
-                      >
-                        <Send size={11} /> Vector Patrol
-                      </button>
+                {paginatedIncidents.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
+                      No dispatch targets found matching your search.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  paginatedIncidents.map((item) => (
+                    <tr
+                      key={item.id}
+                      onClick={() => setSelectedIncident(item)}
+                      style={{
+                        cursor: 'pointer',
+                        background: selectedIncident?.id === item.id ? 'rgba(0, 229, 255, 0.08)' : 'transparent'
+                      }}
+                    >
+                      <td>
+                        <div style={{ fontWeight: 700, color: '#fff' }}>{item.bank_name}</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{item.atm_id} ({item.cluster_id || item.id})</div>
+                      </td>
+                      <td>{item.district}, {item.state}</td>
+                      <td style={{ color: '#00e676', fontWeight: 800 }}>
+                        ₹{item.total_fraud_volume ? (item.total_fraud_volume / 100000).toFixed(1) + 'L' : '8.5L'}
+                      </td>
+                      <td>
+                        <span className={`pulse-badge ${item.alert_tier === 'P1' ? 'danger' : 'warning'}`}>
+                          {item.alert_tier}
+                        </span>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '0.72rem', color: '#00e5ff', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Clock size={11} /> {getTimeRemaining(item.predicted_window_end)}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ fontSize: '0.76rem', color: '#93c5fd' }}>{item.police_station_name}</div>
+                        <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>{item.police_contact}</div>
+                      </td>
+                      <td>
+                        <span style={{
+                          fontSize: '0.7rem',
+                          fontWeight: 800,
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          background: item.dispatch_status === 'ON_SCENE' ? 'rgba(0, 230, 118, 0.2)' : item.dispatch_status === 'DISPATCHED' ? 'rgba(0, 229, 255, 0.2)' : 'rgba(255, 170, 0, 0.2)',
+                          color: item.dispatch_status === 'ON_SCENE' ? '#00e676' : item.dispatch_status === 'DISPATCHED' ? '#00e5ff' : '#ffaa00'
+                        }}>
+                          {item.dispatch_status}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUpdateStatus(item.id, 'DISPATCHED');
+                          }}
+                          className="cyber-btn"
+                          style={{ padding: '4px 8px', fontSize: '0.7rem' }}
+                        >
+                          <Send size={11} /> Vector Patrol
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {filteredIncidents.length > 0 && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingTop: '10px',
+              flexWrap: 'wrap',
+              gap: '10px'
+            }}>
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filteredIncidents.length)} of{' '}
+                <strong style={{ color: '#00e5ff' }}>{filteredIncidents.length}</strong> targets
+              </span>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={safePage === 1}
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '6px',
+                    color: safePage === 1 ? 'var(--text-muted)' : '#fff',
+                    cursor: safePage === 1 ? 'not-allowed' : 'pointer',
+                    padding: '4px 8px',
+                    fontSize: '0.75rem'
+                  }}
+                >«</button>
+
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage === 1}
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '6px',
+                    color: safePage === 1 ? 'var(--text-muted)' : '#fff',
+                    cursor: safePage === 1 ? 'not-allowed' : 'pointer',
+                    padding: '4px 10px',
+                    fontSize: '0.75rem'
+                  }}
+                >‹ Prev</button>
+
+                {/* Page number pills */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                  .reduce((acc, p, idx, arr) => {
+                    if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, i) =>
+                    p === '...' ? (
+                      <span key={`ellipsis-${i}`} style={{ color: 'var(--text-muted)', padding: '0 2px', fontSize: '0.75rem' }}>…</span>
+                    ) : (
+                      <button
+                        key={p}
+                        onClick={() => setCurrentPage(p)}
+                        style={{
+                          background: safePage === p ? 'rgba(0,229,255,0.15)' : 'rgba(255,255,255,0.05)',
+                          border: safePage === p ? '1px solid rgba(0,229,255,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: '6px',
+                          color: safePage === p ? '#00e5ff' : '#fff',
+                          cursor: 'pointer',
+                          padding: '4px 9px',
+                          fontSize: '0.75rem',
+                          fontWeight: safePage === p ? 700 : 400
+                        }}
+                      >{p}</button>
+                    )
+                  )}
+
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage === totalPages}
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '6px',
+                    color: safePage === totalPages ? 'var(--text-muted)' : '#fff',
+                    cursor: safePage === totalPages ? 'not-allowed' : 'pointer',
+                    padding: '4px 10px',
+                    fontSize: '0.75rem'
+                  }}
+                >Next ›</button>
+
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={safePage === totalPages}
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '6px',
+                    color: safePage === totalPages ? 'var(--text-muted)' : '#fff',
+                    cursor: safePage === totalPages ? 'not-allowed' : 'pointer',
+                    padding: '4px 8px',
+                    fontSize: '0.75rem'
+                  }}
+                >»</button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right: Selected Incident Field Directive Dossier */}
