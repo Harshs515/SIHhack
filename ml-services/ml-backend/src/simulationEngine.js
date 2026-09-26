@@ -44,6 +44,7 @@ let   lastProcessedId = 0
 const DISTRICT_COORDS = {
   'Rohini':        { lat: 28.7041, lng: 77.0780, state: 'Delhi' },
   'Central Delhi': { lat: 28.6139, lng: 77.2090, state: 'Delhi' },
+  'Navi Mumbai':   { lat: 19.0330, lng: 73.0297, state: 'Maharashtra' },
   'Hyderabad':     { lat: 17.3850, lng: 78.4867, state: 'Telangana' },
   'Rangareddy':    { lat: 17.2403, lng: 78.3338, state: 'Telangana' },
   'Mumbai':        { lat: 19.0760, lng: 72.8777, state: 'Maharashtra' },
@@ -158,7 +159,7 @@ async function processNewComplaints() {
   try {
     const { data: complaints, error: fetchError } = await supabase
       .from('complaints')
-      .select('id, complaint_id, complaint_date, crime_category, sub_category, state, district, city, latitude, longitude, amount, status, raw_reference')
+      .select('id, complaint_id, complaint_date, created_at, crime_category, sub_category, state, district, city, latitude, longitude, amount, status, raw_reference')
       .eq('status', 'submitted')
       .gt('id', lastProcessedId)
       .order('id', { ascending: true })
@@ -193,6 +194,9 @@ async function processNewComplaints() {
       let predSource = 'ML_STANDARD'
       let sessionMeta = {}
 
+      if (!c.transactionId) {
+        console.warn(`[Engine] No transaction reference for ${c.ackNo}; skipping session resolver`)
+      }
       const sessionResult = await trySessionIntercept(c, lat, lng)
       if (sessionResult?.session) {
         const s = sessionResult.session
@@ -280,6 +284,11 @@ async function processNewComplaints() {
               console.warn(`[Engine] ML 429 Rate Limit hit. Retrying in ${(i + 1) * 3} seconds...`)
               await sleep((i + 1) * 3000)
             } else {
+              const responseDetails = mlErr.response?.data?.detail
+              const failure = mlErr.response
+                ? `HTTP ${mlErr.response.status}: ${JSON.stringify(responseDetails || mlErr.response.data)}`
+                : mlErr.message
+              console.warn(`[Engine] ML request failed (${failure})`)
               throw mlErr
             }
           }
@@ -290,14 +299,14 @@ async function processNewComplaints() {
         prediction = mlResponse
         console.log(`[Engine] ML responded: ${prediction.alert_level} | score: ${prediction.risk_score}`)
       } catch (mlErr) {
-        console.warn(`[Engine] ML unreachable (${mlErr.message}) — using rule-based fallback`)
+        console.warn(`[Engine] ML prediction failed (${mlErr.message}) — using rule-based fallback`)
         prediction = ruleBasedFallback(c.fraudCategory, c.fraudAmount)
       }
 
       const riskScore = Math.min(1, Math.max(0, parseFloat(prediction.risk_score || 0.50)))
       const alertLevel = prediction.alert_level || (riskScore >= 0.80 ? 'P1' : riskScore >= 0.55 ? 'P2' : 'P3')
       const district = prediction.predicted_districts?.[0] || predDistrict || 'Central Delhi'
-      const coords = DISTRICT_COORDS[district] || DEFAULT_COORDS
+      const coords = DISTRICT_COORDS[district] || { lat: predLat, lng: predLng, state: predState }
       const shapFeatures = prediction.shap_top_features || prediction.feature_importance || []
       const { predicted_window_start, predicted_window_end } = buildPredictionWindow(alertLevel)
       const sessionNote = sessionMeta.session_id
@@ -340,8 +349,8 @@ async function processNewComplaints() {
           complaint_id: complaintIntId,
           cluster_id: prediction.cluster_id || Math.floor(Math.random() * 100),
           center_geom: `SRID=4326;POINT(${coords.lng} ${coords.lat})`,
-          lat: predLat,
-          lng: predLng,
+          lat: coords.lat,
+          lng: coords.lng,
           radius_meters: Math.max(500, Math.round(3000 * riskScore)),
           risk_score: riskScore,
           alert_level: alertLevel,
@@ -353,7 +362,7 @@ async function processNewComplaints() {
           atm_location_id: atms?.[0]?.id || null,
           assigned_police_station_id: stations?.[0]?.id || null,
           district,
-          state: predState,
+          state: coords.state,
           actionable_intelligence: intelligence,
           shap_top_features: JSON.stringify(shapFeatures),
           ml_raw_output: JSON.stringify(prediction),

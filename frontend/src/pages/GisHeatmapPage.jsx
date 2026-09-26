@@ -4,7 +4,7 @@ import L from 'leaflet';
 import { MapPin, Layers, Filter, Shield, Clock, AlertTriangle, Crosshair, CheckSquare, Square } from 'lucide-react';
 import { supabase } from '../services/realtimeClient';
 
-const API = import.meta.env.VITE_API_URL || "https://sih2026-backend-k5ru.onrender.com/api";
+const API = import.meta.env.VITE_API_URL || "http://localhost:8001/api";
 
 const complaintIcon = L.divIcon({
   className: 'custom-leaflet-icon',

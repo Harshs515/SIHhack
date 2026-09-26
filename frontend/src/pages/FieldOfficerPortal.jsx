@@ -27,7 +27,7 @@ import { FIELD_OFFICERS } from "../data/personnel";
 import { getSession, clearSession } from "../utils/session";
 import { supabase } from "../services/realtimeClient";
 
-const API = import.meta.env.VITE_API_URL || "https://sih2026-backend-k5ru.onrender.com/api";
+const API = import.meta.env.VITE_API_URL || "http://localhost:8001/api";
 
 const navigateToAtm = (lat, lng, bankName) => {
   if (lat && lng) {

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../services/realtimeClient';
 
-const API = import.meta.env.VITE_API_BASE_URL || 'https://sih2026-backend-k5ru.onrender.com/api';
+const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001/api';
 
 export default function AlertsCenterPage({ hotspots = [], setHotspots, stats = {} }) {
   const initialAlerts = Array.isArray(hotspots) ? hotspots : (hotspots?.data || []);

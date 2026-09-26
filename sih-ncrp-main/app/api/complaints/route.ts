@@ -57,6 +57,7 @@ export async function POST(request: Request) {
         district: payload.district ?? null,
         city: payload.city ?? null,
         amount: payload.fraud_amount ?? null,
+        raw_reference: payload.transaction_id?.trim() || null,
         status: 'submitted',
       })
       .select('id, complaint_id, status')

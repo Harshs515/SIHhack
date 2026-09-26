@@ -39,7 +39,7 @@ import {
   MOCK_POLICE_STATIONS,
 } from "./data/mockData";
 
-const API = import.meta.env.VITE_API_BASE_URL || 'https://sih2026-backend-k5ru.onrender.com/api';
+const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001/api';
 
 function AppContent({
   isRunningML,
