@@ -11,7 +11,8 @@ import {
   Radio,
   Filter,
   Volume2,
-  ShieldCheck
+  ShieldCheck,
+  Search
 } from 'lucide-react';
 import { MOCK_ALERTS_STREAM } from '../data/mockData';
 import { supabase } from '../services/realtimeClient';
@@ -21,7 +22,10 @@ const API = import.meta.env.VITE_API_BASE_URL || 'https://sih2026-backend-k5ru.o
 export default function AlertsCenterPage({ hotspots = [], setHotspots, stats = {} }) {
   const initialAlerts = Array.isArray(hotspots) ? hotspots : hotspots?.data || MOCK_ALERTS_STREAM;
   const [localHotspots, setLocalHotspots] = useState(initialAlerts);
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedTier, setSelectedTier] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
   const [broadcastLog, setBroadcastLog] = useState(null);
 
   useEffect(() => {
@@ -92,8 +96,31 @@ export default function AlertsCenterPage({ hotspots = [], setHotspots, stats = {
   const filteredAlerts = (Array.isArray(localHotspots) && localHotspots.length > 0 ? localHotspots : MOCK_ALERTS_STREAM).filter((a) => {
     const tier = a.alert_level || a.alert_tier || a.tier || 'P1';
     if (selectedTier !== 'ALL' && tier !== selectedTier) return false;
-    return true;
+    if (!searchTerm.trim()) return true;
+    const q = searchTerm.toLowerCase();
+    const bankName = (a.atm_bank || a.bank_name || a.bank || '').toLowerCase();
+    const districtName = (a.district || a.atm_city || a.city || '').toLowerCase();
+    const stateName = (a.state || '').toLowerCase();
+    const category = (a.top_fraud_category || a.fraud_category || a.category || '').toLowerCase();
+    const intelligence = (a.actionable_intelligence || '').toLowerCase();
+    const stationName = (a.station_name || a.police_station_name || '').toLowerCase();
+    const idStr = String(typeof a.id === 'number' ? `ALT-${a.id}` : a.id || '').toLowerCase();
+
+    return (
+      idStr.includes(q) ||
+      bankName.includes(q) ||
+      districtName.includes(q) ||
+      stateName.includes(q) ||
+      category.includes(q) ||
+      intelligence.includes(q) ||
+      stationName.includes(q) ||
+      tier.toLowerCase().includes(q)
+    );
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredAlerts.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedAlerts = filteredAlerts.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const handleBroadcastAlert = (alertItem, channel) => {
     const bankName = alertItem.atm_bank || alertItem.bank_name || alertItem.bank || 'SBI ATM';
@@ -182,22 +209,36 @@ export default function AlertsCenterPage({ hotspots = [], setHotspots, stats = {
       <div className="glass-panel" style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#fff' }}>
-            Live Threat Alert Broadcast Stream
+            Live Threat Alert Broadcast Stream ({filteredAlerts.length})
           </h3>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Filter size={14} color="#00e5ff" />
-            <select
-              value={selectedTier}
-              onChange={(e) => setSelectedTier(e.target.value)}
-              className="cyber-select"
-              style={{ fontSize: '0.75rem', padding: '4px 10px' }}
-            >
-              <option value="ALL">All Alert Tiers (P1, P2, P3)</option>
-              <option value="P1">P1 Critical Only</option>
-              <option value="P2">P2 High Only</option>
-              <option value="P3">P3 Monitoring Only</option>
-            </select>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Filter size={14} color="#00e5ff" />
+              <select
+                value={selectedTier}
+                onChange={(e) => { setSelectedTier(e.target.value); setCurrentPage(1); }}
+                className="cyber-select"
+                style={{ fontSize: '0.75rem', padding: '5px 10px' }}
+              >
+                <option value="ALL">All Alert Tiers (P1, P2, P3)</option>
+                <option value="P1">P1 Critical Only</option>
+                <option value="P2">P2 High Only</option>
+                <option value="P3">P3 Monitoring Only</option>
+              </select>
+            </div>
+
+            <div style={{ position: 'relative', width: '260px' }}>
+              <Search size={14} color="var(--text-muted)" style={{ position: 'absolute', left: '10px', top: '10px' }} />
+              <input
+                type="text"
+                placeholder="Search Alert, Bank, District..."
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                className="cyber-input"
+                style={{ width: '100%', paddingLeft: '32px', fontSize: '0.78rem' }}
+              />
+            </div>
           </div>
         </div>
 
@@ -214,110 +255,222 @@ export default function AlertsCenterPage({ hotspots = [], setHotspots, stats = {
             </tr>
           </thead>
           <tbody>
-            {filteredAlerts.map((item) => {
-              const tier = item.alert_level || item.alert_tier || item.tier || (item.risk_score >= 0.8 ? 'P1' : item.risk_score >= 0.5 ? 'P2' : 'P3');
-              const bankName = item.atm_bank || item.bank_name || item.bank || 'State Bank of India';
-              const districtName = item.district || item.atm_city || item.city || 'Rohini';
-              const stateName = item.state || 'Delhi';
-              const category = item.top_fraud_category || item.fraud_category || item.category || 'UPI_FRAUD';
-              const timeStr = item.created_at ? new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : item.timestamp || 'Just now';
-              const windowStr = item.predicted_window_start && item.predicted_window_end
-                ? `${new Date(item.predicted_window_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${new Date(item.predicted_window_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                : item.window || '45 mins remaining';
-              const riskVal = item.risk_score ? (item.risk_score <= 1 ? (item.risk_score * 100).toFixed(0) : item.risk_score) : 85;
-              const stationName = item.station_name || item.police_station_name || 'Cyber Crime PS';
-              const stationContact = item.station_contact || item.police_contact || '1930';
+            {paginatedAlerts.length === 0 ? (
+              <tr>
+                <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  No alerts found matching your search or filter criteria.
+                </td>
+              </tr>
+            ) : (
+              paginatedAlerts.map((item) => {
+                const tier = item.alert_level || item.alert_tier || item.tier || (item.risk_score >= 0.8 ? 'P1' : item.risk_score >= 0.5 ? 'P2' : 'P3');
+                const bankName = item.atm_bank || item.bank_name || item.bank || 'State Bank of India';
+                const districtName = item.district || item.atm_city || item.city || 'Rohini';
+                const stateName = item.state || 'Delhi';
+                const category = item.top_fraud_category || item.fraud_category || item.category || 'UPI_FRAUD';
+                const timeStr = item.created_at ? new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : item.timestamp || 'Just now';
+                const windowStr = item.predicted_window_start && item.predicted_window_end
+                  ? `${new Date(item.predicted_window_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${new Date(item.predicted_window_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                  : item.window || '45 mins remaining';
+                const riskVal = item.risk_score ? (item.risk_score <= 1 ? (item.risk_score * 100).toFixed(0) : item.risk_score) : 85;
+                const stationName = item.station_name || item.police_station_name || 'Cyber Crime PS';
+                const stationContact = item.station_contact || item.police_contact || '1930';
 
-              return (
-                <tr key={item.id}>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span className={`pulse-badge ${tier === 'P1' ? 'danger' : tier === 'P2' ? 'warning' : 'primary'}`}>
-                        {tier}
-                      </span>
-                      <strong>{typeof item.id === 'number' ? `ALT-${item.id}` : item.id}</strong>
-                    </div>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>{timeStr}</div>
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 700, color: '#fff' }}>{category}</div>
-                    {item.actionable_intelligence && (
-                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', maxWidth: '280px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {item.actionable_intelligence}
+                return (
+                  <tr key={item.id}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span className={`pulse-badge ${tier === 'P1' ? 'danger' : tier === 'P2' ? 'warning' : 'primary'}`}>
+                          {tier}
+                        </span>
+                        <strong>{typeof item.id === 'number' ? `ALT-${item.id}` : item.id}</strong>
                       </div>
-                    )}
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 700, color: '#fff' }}>{bankName}</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{districtName}, {stateName}</div>
-                  </td>
-                  <td>
-                    <span style={{
-                      fontSize: '0.68rem',
-                      fontWeight: 800,
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      background: item.status === 'ACKNOWLEDGED' ? 'rgba(0, 230, 118, 0.15)' : 'rgba(255, 56, 92, 0.15)',
-                      color: item.status === 'ACKNOWLEDGED' ? '#00e676' : '#ff5277',
-                      display: 'inline-block',
-                      marginBottom: '2px'
-                    }}>
-                      {item.status || 'ACTIVE'}
-                    </span>
-                    <div style={{ fontSize: '0.68rem', color: '#93c5fd' }}>{stationName} ({stationContact})</div>
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 800, color: riskVal > 80 ? '#ff385c' : '#ffaa00' }}>
-                      {riskVal}%
-                    </div>
-                  </td>
-                  <td>
-                    <span style={{ fontSize: '0.74rem', color: '#00e5ff', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Clock size={12} /> {windowStr}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                      {item.status !== 'ACKNOWLEDGED' && (
-                        <button
-                          onClick={() => handleAcknowledge(item.id)}
-                          title="Acknowledge Alert"
-                          style={{ background: 'rgba(0, 230, 118, 0.14)', border: '1px solid rgba(0, 230, 118, 0.3)', color: '#00e676', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                        >
-                          <ShieldCheck size={13} /> Ack
-                        </button>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>{timeStr}</div>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 700, color: '#fff' }}>{category}</div>
+                      {item.actionable_intelligence && (
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', maxWidth: '280px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {item.actionable_intelligence}
+                        </div>
                       )}
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 700, color: '#fff' }}>{bankName}</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{districtName}, {stateName}</div>
+                    </td>
+                    <td>
+                      <span style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        background: item.status === 'ACKNOWLEDGED' ? 'rgba(0, 230, 118, 0.15)' : 'rgba(255, 56, 92, 0.15)',
+                        color: item.status === 'ACKNOWLEDGED' ? '#00e676' : '#ff5277',
+                        display: 'inline-block',
+                        marginBottom: '2px'
+                      }}>
+                        {item.status || 'ACTIVE'}
+                      </span>
+                      <div style={{ fontSize: '0.68rem', color: '#93c5fd' }}>{stationName} ({stationContact})</div>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 800, color: riskVal > 80 ? '#ff385c' : '#ffaa00' }}>
+                        {riskVal}%
+                      </div>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: '0.74rem', color: '#00e5ff', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Clock size={12} /> {windowStr}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        {item.status !== 'ACKNOWLEDGED' && (
+                          <button
+                            onClick={() => handleAcknowledge(item.id)}
+                            title="Acknowledge Alert"
+                            style={{ background: 'rgba(0, 230, 118, 0.14)', border: '1px solid rgba(0, 230, 118, 0.3)', color: '#00e676', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          >
+                            <ShieldCheck size={13} /> Ack
+                          </button>
+                        )}
 
-                      <button
-                        onClick={() => handleBroadcastAlert(item, 'Android Police Push')}
-                        title="Push to Android Police App"
-                        style={{ background: 'rgba(0, 229, 255, 0.14)', border: '1px solid rgba(0, 229, 255, 0.3)', color: '#00e5ff', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer' }}
-                      >
-                        <Smartphone size={13} />
-                      </button>
+                        <button
+                          onClick={() => handleBroadcastAlert(item, 'Android Police Push')}
+                          title="Push to Android Police App"
+                          style={{ background: 'rgba(0, 229, 255, 0.14)', border: '1px solid rgba(0, 229, 255, 0.3)', color: '#00e5ff', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer' }}
+                        >
+                          <Smartphone size={13} />
+                        </button>
 
-                      <button
-                        onClick={() => handleBroadcastAlert(item, 'Bank Branch Portal')}
-                        title="Alert Bank ATM Manager"
-                        style={{ background: 'rgba(255, 170, 0, 0.14)', border: '1px solid rgba(255, 170, 0, 0.3)', color: '#ffaa00', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer' }}
-                      >
-                        <Building2 size={13} />
-                      </button>
+                        <button
+                          onClick={() => handleBroadcastAlert(item, 'Bank Branch Portal')}
+                          title="Alert Bank ATM Manager"
+                          style={{ background: 'rgba(255, 170, 0, 0.14)', border: '1px solid rgba(255, 170, 0, 0.3)', color: '#ffaa00', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer' }}
+                        >
+                          <Building2 size={13} />
+                        </button>
 
-                      <button
-                        onClick={() => handleBroadcastAlert(item, 'SMS / Email Gateway')}
-                        title="Send SMS to PCR Van"
-                        style={{ background: 'rgba(0, 230, 118, 0.14)', border: '1px solid rgba(0, 230, 118, 0.3)', color: '#00e676', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer' }}
-                      >
-                        <MessageSquare size={13} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+                        <button
+                          onClick={() => handleBroadcastAlert(item, 'SMS / Email Gateway')}
+                          title="Send SMS to PCR Van"
+                          style={{ background: 'rgba(0, 230, 118, 0.14)', border: '1px solid rgba(0, 230, 118, 0.3)', color: '#00e676', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer' }}
+                        >
+                          <MessageSquare size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
+
+        {/* Pagination Controls */}
+        {filteredAlerts.length > 0 && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingTop: '10px',
+            flexWrap: 'wrap',
+            gap: '10px'
+          }}>
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+              Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filteredAlerts.length)} of{' '}
+              <strong style={{ color: '#00e5ff' }}>{filteredAlerts.length}</strong> alerts
+            </span>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <button
+                onClick={() => setCurrentPage(1)}
+                disabled={safePage === 1}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '6px',
+                  color: safePage === 1 ? 'var(--text-muted)' : '#fff',
+                  cursor: safePage === 1 ? 'not-allowed' : 'pointer',
+                  padding: '4px 8px',
+                  fontSize: '0.75rem'
+                }}
+              >«</button>
+
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safePage === 1}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '6px',
+                  color: safePage === 1 ? 'var(--text-muted)' : '#fff',
+                  cursor: safePage === 1 ? 'not-allowed' : 'pointer',
+                  padding: '4px 10px',
+                  fontSize: '0.75rem'
+                }}
+              >‹ Prev</button>
+
+              {/* Page number pills */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                .reduce((acc, p, idx, arr) => {
+                  if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, i) =>
+                  p === '...' ? (
+                    <span key={`ellipsis-${i}`} style={{ color: 'var(--text-muted)', padding: '0 2px', fontSize: '0.75rem' }}>…</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setCurrentPage(p)}
+                      style={{
+                        background: safePage === p ? 'rgba(0,229,255,0.15)' : 'rgba(255,255,255,0.05)',
+                        border: safePage === p ? '1px solid rgba(0,229,255,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '6px',
+                        color: safePage === p ? '#00e5ff' : '#fff',
+                        cursor: 'pointer',
+                        padding: '4px 9px',
+                        fontSize: '0.75rem',
+                        fontWeight: safePage === p ? 700 : 400
+                      }}
+                    >{p}</button>
+                  )
+                )}
+
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage === totalPages}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '6px',
+                  color: safePage === totalPages ? 'var(--text-muted)' : '#fff',
+                  cursor: safePage === totalPages ? 'not-allowed' : 'pointer',
+                  padding: '4px 10px',
+                  fontSize: '0.75rem'
+                }}
+              >Next ›</button>
+
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={safePage === totalPages}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '6px',
+                  color: safePage === totalPages ? 'var(--text-muted)' : '#fff',
+                  cursor: safePage === totalPages ? 'not-allowed' : 'pointer',
+                  padding: '4px 8px',
+                  fontSize: '0.75rem'
+                }}
+              >»</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

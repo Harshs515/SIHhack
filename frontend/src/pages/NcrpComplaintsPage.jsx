@@ -47,6 +47,8 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isLoadingComplaints, setIsLoadingComplaints] = useState(false);
   const [isLoadingInitial, setIsLoadingInitial] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   // Form input state
   const [victimName, setVictimName] = useState('');
@@ -179,8 +181,26 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
   const filtered = (Array.isArray(complaintList) ? complaintList : []).filter((c) => {
     const cStatus = c.status || 'UNDER_INVESTIGATION';
     const matchesStatus = selectedStatus === 'ALL' || cStatus.toUpperCase() === selectedStatus.toUpperCase();
-    return matchesStatus;
+    if (!matchesStatus) return false;
+    if (!searchTerm.trim()) return true;
+    const q = searchTerm.toLowerCase();
+    return (
+      (c.complaint_id || '').toLowerCase().includes(q) ||
+      (c.acknowledgement_no || '').toLowerCase().includes(q) ||
+      (c.victim_name || '').toLowerCase().includes(q) ||
+      (c.crime_category || '').toLowerCase().includes(q) ||
+      (c.fraud_category || '').toLowerCase().includes(q) ||
+      (c.sub_category || '').toLowerCase().includes(q) ||
+      (c.mule_bank_name || '').toLowerCase().includes(q) ||
+      (c.district || '').toLowerCase().includes(q) ||
+      (c.state || '').toLowerCase().includes(q) ||
+      (c.city || '').toLowerCase().includes(q)
+    );
   });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '12px 24px 28px' }}>
@@ -243,7 +263,7 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
               <Filter size={14} color="#00e5ff" />
               <select
                 value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
+                onChange={(e) => { setSelectedStatus(e.target.value); setCurrentPage(1); }}
                 className="cyber-select"
                 style={{ fontSize: '0.75rem', padding: '5px 10px' }}
               >
@@ -260,7 +280,7 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
                 type="text"
                 placeholder="Search Ack, Victim, Bank, District..."
                 value={searchTerm}
-                onChange={(e) => handleSearch(e.target.value)}
+                onChange={(e) => { handleSearch(e.target.value); setCurrentPage(1); }}
                 className="cyber-input"
                 style={{ width: '100%', paddingLeft: '32px', fontSize: '0.78rem' }}
               />
@@ -299,11 +319,8 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
                 </td>
               </tr>
             ) : (
-              filtered.map((c) => {
+              paginated.map((c) => {
                 const amountVal = c.amount || c.fraud_amount || 0;
-                // const contact = c.victim_contact || c.victim_phone || 'N/A';
-                // const bank = c.mule_bank_name || c.victim_bank || 'Tracking Bank';
-                // const acc = c.mule_account_no || 'IFSC Link Pending';
                 const district = c.district || 'Unknown';
                 const state = c.state || 'Unknown';
                 const status = c.status || 'UNDER_INVESTIGATION';
@@ -359,6 +376,110 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
             )}
           </tbody>
         </table>
+
+        {/* Pagination Controls */}
+        {!isLoadingInitial && filtered.length > 0 && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingTop: '10px',
+            flexWrap: 'wrap',
+            gap: '10px'
+          }}>
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+              Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of{' '}
+              <strong style={{ color: '#00e5ff' }}>{filtered.length}</strong> complaints
+            </span>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <button
+                onClick={() => setCurrentPage(1)}
+                disabled={safePage === 1}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '6px',
+                  color: safePage === 1 ? 'var(--text-muted)' : '#fff',
+                  cursor: safePage === 1 ? 'not-allowed' : 'pointer',
+                  padding: '4px 8px',
+                  fontSize: '0.75rem'
+                }}
+              >«</button>
+
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safePage === 1}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '6px',
+                  color: safePage === 1 ? 'var(--text-muted)' : '#fff',
+                  cursor: safePage === 1 ? 'not-allowed' : 'pointer',
+                  padding: '4px 10px',
+                  fontSize: '0.75rem'
+                }}
+              >‹ Prev</button>
+
+              {/* Page number pills */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                .reduce((acc, p, idx, arr) => {
+                  if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, i) =>
+                  p === '...' ? (
+                    <span key={`ellipsis-${i}`} style={{ color: 'var(--text-muted)', padding: '0 2px', fontSize: '0.75rem' }}>…</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setCurrentPage(p)}
+                      style={{
+                        background: safePage === p ? 'rgba(0,229,255,0.15)' : 'rgba(255,255,255,0.05)',
+                        border: safePage === p ? '1px solid rgba(0,229,255,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '6px',
+                        color: safePage === p ? '#00e5ff' : '#fff',
+                        cursor: 'pointer',
+                        padding: '4px 9px',
+                        fontSize: '0.75rem',
+                        fontWeight: safePage === p ? 700 : 400
+                      }}
+                    >{p}</button>
+                  )
+                )}
+
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage === totalPages}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '6px',
+                  color: safePage === totalPages ? 'var(--text-muted)' : '#fff',
+                  cursor: safePage === totalPages ? 'not-allowed' : 'pointer',
+                  padding: '4px 10px',
+                  fontSize: '0.75rem'
+                }}
+              >Next ›</button>
+
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={safePage === totalPages}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '6px',
+                  color: safePage === totalPages ? 'var(--text-muted)' : '#fff',
+                  cursor: safePage === totalPages ? 'not-allowed' : 'pointer',
+                  padding: '4px 8px',
+                  fontSize: '0.75rem'
+                }}
+              >»</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Complaint Detail & Linked Hotspot Panel/Modal */}
