@@ -152,11 +152,13 @@ async function trySessionIntercept(c, lat, lng) {
 // ─────────────────────────────────────────────────────────────
 // MAIN LOOP
 // ─────────────────────────────────────────────────────────────
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
 async function processNewComplaints() {
   try {
     const { data: complaints, error: fetchError } = await supabase
       .from('complaints')
-      .select('*')
+      .select('id, complaint_id, complaint_date, crime_category, sub_category, state, district, city, latitude, longitude, amount, status, raw_reference')
       .eq('status', 'submitted')
       .gt('id', lastProcessedId)
       .order('id', { ascending: true })
@@ -173,6 +175,13 @@ async function processNewComplaints() {
 
     for (const rawRow of complaints) {
       lastProcessedId = Math.max(lastProcessedId, rawRow.id)
+
+      // Guard check for BUG 1: ensure rawRow.id is valid number before processing/insert
+      if (!rawRow.id || (typeof rawRow.id !== 'number' && isNaN(parseInt(rawRow.id)))) {
+        console.error(`[Engine] Cannot insert hotspot — complaint.id is invalid: ${rawRow.id}`)
+        continue  // skip this complaint, don't crash
+      }
+      const complaintIntId = parseInt(rawRow.id)
 
       const c = mapComplaintFields(rawRow)
 
@@ -310,7 +319,7 @@ async function processNewComplaints() {
         .from('predicted_hotspots')
         .insert([{
           model_run_id: modelRuns?.[0]?.id || 1,
-          complaint_id: c.dbId,
+          complaint_id: complaintIntId,
           cluster_id: prediction.cluster_id || Math.floor(Math.random() * 100),
           center_geom: `SRID=4326;POINT(${coords.lng} ${coords.lat})`,
           lat: predLat,
@@ -349,6 +358,9 @@ async function processNewComplaints() {
         `[Engine] ✅ [${alertLevel}] ${c.ackNo}` +
         ` → ${district} (${(riskScore * 100).toFixed(0)}%)`
       )
+
+      // Add 2-second sleep between ML calls to prevent status 429 rate limit
+      await sleep(2000)
     }
   } catch (err) {
     console.error('[Engine] Unhandled error:', err.message)

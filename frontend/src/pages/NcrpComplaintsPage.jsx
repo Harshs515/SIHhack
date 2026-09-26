@@ -340,7 +340,7 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
                   >
                     <td><strong style={{ color: '#00e5ff' }}>{c.acknowledgement_no || c.complaint_id || `#${c.id}`}</strong></td>
                     <td>
-                      <div style={{ fontWeight: 700, color: '#fff' }}>{c.victim_name || 'Citizen'}</div>
+                      <div style={{ fontWeight: 700, color: '#fff' }}>{c.victim_name || c.complainant_type || '—'}</div>
                       <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{contact}</div>
                     </td>
                     <td>
@@ -407,7 +407,7 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.8rem' }}>
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '8px' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>VICTIM NAME</span>
-                <div style={{ fontWeight: 700, color: '#fff' }}>{selectedComplaint.victim_name || 'Citizen'}</div>
+                <div style={{ fontWeight: 700, color: '#fff' }}>{selectedComplaint.victim_name || selectedComplaint.complainant_type || 'Not provided'}</div>
                 <div style={{ color: 'var(--text-secondary)', fontSize: '0.72rem' }}>{selectedComplaint.victim_contact || selectedComplaint.victim_phone}</div>
               </div>
 

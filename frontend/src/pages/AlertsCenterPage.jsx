@@ -21,6 +21,7 @@ export default function AlertsCenterPage({ hotspots = [], setHotspots, stats = {
   const initialAlerts = Array.isArray(hotspots) ? hotspots : (hotspots?.data || []);
   const [localHotspots, setLocalHotspots] = useState(initialAlerts);
   const [selectedTier, setSelectedTier] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ACTIVE');
   const [broadcastLog, setBroadcastLog] = useState(null);
 
   useEffect(() => {
@@ -30,7 +31,7 @@ export default function AlertsCenterPage({ hotspots = [], setHotspots, stats = {
     }
   }, [hotspots]);
 
-  // Supabase Realtime for new P1 inserts
+  // Supabase Realtime for new P1 inserts & updates
   useEffect(() => {
     if (!supabase || !supabase.channel) return;
     const channel = supabase
@@ -41,11 +42,14 @@ export default function AlertsCenterPage({ hotspots = [], setHotspots, stats = {
         (payload) => {
           const newAlert = payload.new;
           if (!newAlert) return;
-          setLocalHotspots((prev) => {
-            const list = Array.isArray(prev) ? prev : [];
-            if (list.find((h) => h.id === newAlert.id)) return list;
-            return [newAlert, ...list];
-          });
+          // Only auto-add ACTIVE alerts to stream by default
+          if ((newAlert.status || 'ACTIVE') === 'ACTIVE') {
+            setLocalHotspots((prev) => {
+              const list = Array.isArray(prev) ? prev : [];
+              if (list.find((h) => h.id === newAlert.id)) return list;
+              return [newAlert, ...list];
+            });
+          }
           if (newAlert.alert_level === 'P1') {
             // Play audio alert
             new Audio('/alert.mp3').play().catch(() => {});
@@ -64,6 +68,17 @@ export default function AlertsCenterPage({ hotspots = [], setHotspots, stats = {
               }
             }
           }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'predicted_hotspots' },
+        (payload) => {
+          const updated = payload.new;
+          if (!updated) return;
+          setLocalHotspots((prev) =>
+            (Array.isArray(prev) ? prev : []).map((a) => (a.id === updated.id ? { ...a, ...updated } : a))
+          );
         }
       )
       .subscribe();
@@ -116,14 +131,10 @@ export default function AlertsCenterPage({ hotspots = [], setHotspots, stats = {
   const filteredAlerts = (Array.isArray(localHotspots) ? localHotspots : []).filter((a) => {
     const tier = a.alert_level || a.alert_tier || a.tier || 'P1';
     if (selectedTier !== 'ALL' && tier !== selectedTier) return false;
+    const status = a.status || 'ACTIVE';
+    if (statusFilter !== 'ALL' && status !== statusFilter) return false;
     return true;
   });
-
-  const handleBroadcastAlert = (alertItem, channel) => {
-    const bankName = alertItem.atm_bank || alertItem.bank_name || alertItem.bank || 'SBI ATM';
-    setBroadcastLog(`✅ Broadcast successful via ${channel} for ${alertItem.id} (${bankName})`);
-    setTimeout(() => setBroadcastLog(null), 4000);
-  };
 
   const handleBroadcastAllP1 = () => {
     setBroadcastLog('🚨 EMERGENCY BROADCAST: All P1 High-Priority Alerts pushed via FCM to Registered LEA Android Devices.');
@@ -206,11 +217,23 @@ export default function AlertsCenterPage({ hotspots = [], setHotspots, stats = {
       <div className="glass-panel" style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#fff' }}>
-            Live Threat Alert Broadcast Stream
+            Live Threat Alert Stream
           </h3>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Filter size={14} color="#00e5ff" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="cyber-select"
+              style={{ fontSize: '0.75rem', padding: '4px 10px' }}
+            >
+              <option value="ACTIVE">ACTIVE Alerts Only</option>
+              <option value="ACKNOWLEDGED">ACKNOWLEDGED Only</option>
+              <option value="RESOLVED">RESOLVED Only</option>
+              <option value="ALL">All Statuses</option>
+            </select>
+
             <select
               value={selectedTier}
               onChange={(e) => setSelectedTier(e.target.value)}
@@ -234,7 +257,6 @@ export default function AlertsCenterPage({ hotspots = [], setHotspots, stats = {
               <th>Status / Station</th>
               <th>Threat Score</th>
               <th>Golden Window</th>
-              <th>Broadcast & Acknowledge</th>
             </tr>
           </thead>
           <tbody>
@@ -276,18 +298,28 @@ export default function AlertsCenterPage({ hotspots = [], setHotspots, stats = {
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{districtName}, {stateName}</div>
                   </td>
                   <td>
-                    <span style={{
-                      fontSize: '0.68rem',
-                      fontWeight: 800,
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      background: item.status === 'ACKNOWLEDGED' ? 'rgba(0, 230, 118, 0.15)' : 'rgba(255, 56, 92, 0.15)',
-                      color: item.status === 'ACKNOWLEDGED' ? '#00e676' : '#ff5277',
-                      display: 'inline-block',
-                      marginBottom: '2px'
-                    }}>
-                      {item.status || 'ACTIVE'}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                      <span style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        background: item.status === 'ACKNOWLEDGED' ? 'rgba(0, 230, 118, 0.15)' : 'rgba(255, 56, 92, 0.15)',
+                        color: item.status === 'ACKNOWLEDGED' ? '#00e676' : '#ff5277',
+                        display: 'inline-block',
+                      }}>
+                        {item.status || 'ACTIVE'}
+                      </span>
+                      {item.status !== 'ACKNOWLEDGED' && (
+                        <button
+                          onClick={() => handleAcknowledge(item.id)}
+                          title="Acknowledge Alert"
+                          style={{ background: 'rgba(0, 230, 118, 0.14)', border: '1px solid rgba(0, 230, 118, 0.3)', color: '#00e676', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.68rem', display: 'flex', alignItems: 'center', gap: '3px' }}
+                        >
+                          <ShieldCheck size={12} /> Ack
+                        </button>
+                      )}
+                    </div>
                     <div style={{ fontSize: '0.68rem', color: '#93c5fd' }}>{stationName} ({stationContact})</div>
                   </td>
                   <td>
@@ -299,43 +331,6 @@ export default function AlertsCenterPage({ hotspots = [], setHotspots, stats = {
                     <span style={{ fontSize: '0.74rem', color: '#00e5ff', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <Clock size={12} /> {windowStr}
                     </span>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                      {item.status !== 'ACKNOWLEDGED' && (
-                        <button
-                          onClick={() => handleAcknowledge(item.id)}
-                          title="Acknowledge Alert"
-                          style={{ background: 'rgba(0, 230, 118, 0.14)', border: '1px solid rgba(0, 230, 118, 0.3)', color: '#00e676', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                        >
-                          <ShieldCheck size={13} /> Ack
-                        </button>
-                      )}
-
-                      <button
-                        onClick={() => handleBroadcastAlert(item, 'Android Police Push')}
-                        title="Push to Android Police App"
-                        style={{ background: 'rgba(0, 229, 255, 0.14)', border: '1px solid rgba(0, 229, 255, 0.3)', color: '#00e5ff', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer' }}
-                      >
-                        <Smartphone size={13} />
-                      </button>
-
-                      <button
-                        onClick={() => handleBroadcastAlert(item, 'Bank Branch Portal')}
-                        title="Alert Bank ATM Manager"
-                        style={{ background: 'rgba(255, 170, 0, 0.14)', border: '1px solid rgba(255, 170, 0, 0.3)', color: '#ffaa00', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer' }}
-                      >
-                        <Building2 size={13} />
-                      </button>
-
-                      <button
-                        onClick={() => handleBroadcastAlert(item, 'SMS / Email Gateway')}
-                        title="Send SMS to PCR Van"
-                        style={{ background: 'rgba(0, 230, 118, 0.14)', border: '1px solid rgba(0, 230, 118, 0.3)', color: '#00e676', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer' }}
-                      >
-                        <MessageSquare size={13} />
-                      </button>
-                    </div>
                   </td>
                 </tr>
               );
