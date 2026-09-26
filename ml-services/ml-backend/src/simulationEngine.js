@@ -14,6 +14,22 @@
 // At the top of simulationEngine.js, add:
 const SESSION_RESOLVER_URL = process.env.SESSION_RESOLVER_URL || 'http://localhost:8002'
 
+const STATE_LAT = {
+  'Delhi': 28.6139, 'Maharashtra': 19.0760, 'Telangana': 17.3850,
+  'Karnataka': 12.9716, 'Tamil Nadu': 13.0827, 'West Bengal': 22.5726,
+  'Uttar Pradesh': 26.8467, 'Rajasthan': 26.9124, 'Bihar': 25.5941,
+  'Jharkhand': 23.6102, 'Gujarat': 23.0225, 'Haryana': 29.0588,
+  'Punjab': 31.1471, 'Madhya Pradesh': 23.2599, 'Andhra Pradesh': 15.9129,
+  'Kerala': 10.8505, 'Odisha': 20.9517, 'Assam': 26.2006,
+}
+const STATE_LNG = {
+  'Delhi': 77.2090, 'Maharashtra': 72.8777, 'Telangana': 78.4867,
+  'Karnataka': 77.5946, 'Tamil Nadu': 80.2707, 'West Bengal': 88.3697,
+  'Uttar Pradesh': 80.9462, 'Rajasthan': 75.7873, 'Bihar': 85.1376,
+  'Jharkhand': 85.2799, 'Gujarat': 72.5714, 'Haryana': 76.0856,
+  'Punjab': 75.3412, 'Madhya Pradesh': 77.4126, 'Andhra Pradesh': 79.7400,
+  'Kerala': 76.2711, 'Odisha': 85.0985, 'Assam': 92.9376,
+}
 
 const { supabase, pool } = require('./db')
 const axios              = require('axios')
@@ -69,6 +85,70 @@ function getDefaultLngForState(state) {
   return defaults[state] || 78.9629  // India center as last fallback
 }
 
+function mapComplaintFields(row) {
+  return {
+    dbId: row.id,
+    ackNo: row.complaint_id || `ID-${row.id}`,
+    fraudCategory: row.crime_category || row.fraud_category || 'OTHER',
+    fraudAmount: parseFloat(row.amount || row.fraud_amount || 0),
+    incidentTime: row.complaint_date || row.incident_timestamp || new Date().toISOString(),
+    state: row.state || 'Unknown',
+    district: row.district || 'Unknown',
+    city: row.city || null,
+    rawLat: row.latitude,
+    rawLng: row.longitude,
+    transactionId: row.raw_reference || row.transaction_id || null,
+  }
+}
+
+function resolveCoords(rawLat, rawLng, state) {
+  const lat = parseFloat(rawLat)
+  const lng = parseFloat(rawLng)
+  if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+    return { lat, lng }
+  }
+  if (state && STATE_LAT[state]) {
+    return { lat: STATE_LAT[state], lng: STATE_LNG[state] }
+  }
+  return { lat: 20.5937, lng: 78.9629 }
+}
+
+function buildPredictionWindow(alertLevel) {
+  const now = new Date()
+  const startMins = 15
+  const endMins = alertLevel === 'P1' ? 60 : alertLevel === 'P2' ? 90 : 120
+
+  return {
+    predicted_window_start: new Date(now.getTime() + startMins * 60000).toISOString(),
+    predicted_window_end: new Date(now.getTime() + endMins * 60000).toISOString(),
+  }
+}
+
+async function trySessionIntercept(c, lat, lng) {
+  if (!c.transactionId) return null
+
+  try {
+    const res = await axios.post(`${SESSION_RESOLVER_URL}/resolve`, {
+      transaction_id: c.transactionId,
+      victim_lat: lat,
+      victim_lng: lng,
+      fraud_amount: c.fraudAmount,
+    }, { timeout: 4000 })
+
+    if (res.data?.success && res.data?.session?.session_status === 'ACTIVE') {
+      console.log(`[Engine] 🔗 Session intercepted for ${c.ackNo}:`)
+      console.log(`         From: ${c.district}, ${c.state}`)
+      console.log(`         To:   ${res.data.session.destination_district}, ${res.data.session.destination_state}`)
+      return res.data
+    }
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[Engine] Session resolver unavailable (${err.message}) — using victim location`)
+    }
+  }
+  return null
+}
+
 // ─────────────────────────────────────────────────────────────
 // MAIN LOOP
 // ─────────────────────────────────────────────────────────────
@@ -91,120 +171,89 @@ async function processNewComplaints() {
 
     console.log(`[Engine] Processing ${complaints.length} complaint(s)...`)
 
-    for (const complaint of complaints) {
-      lastProcessedId = Math.max(lastProcessedId, complaint.id)
+    for (const rawRow of complaints) {
+      lastProcessedId = Math.max(lastProcessedId, rawRow.id)
 
-      // ── Fix 1C: Map DB field names (complaints table columns differ from old naming) ──
-      const fraudCategory = complaint.crime_category || complaint.fraud_category || 'OTHER'
-      const fraudAmount   = parseFloat(complaint.amount || complaint.fraud_amount || 0)
-      const complaintDate = complaint.complaint_date || complaint.incident_timestamp || new Date().toISOString()
-      const ackNo         = complaint.complaint_id   || complaint.acknowledgement_no || String(complaint.id)
-      const stateVal      = complaint.state    || 'Unknown'
-      const districtVal   = complaint.district || 'Unknown'
+      const c = mapComplaintFields(rawRow)
 
-      // ── Fix 1B: Read latitude/longitude from complaints table columns ──
-      // NCRP portal may not always populate coordinates → fall back to state center
-      const victimLat = parseFloat(complaint.latitude) || getDefaultLatForState(stateVal)
-      const victimLng = parseFloat(complaint.longitude) || getDefaultLngForState(stateVal)
+      let { lat, lng } = resolveCoords(c.rawLat, c.rawLng, c.state)
+      let predLat = lat
+      let predLng = lng
+      let predState = c.state
+      let predDistrict = c.district
+      let predSource = 'ML_STANDARD'
+      let sessionMeta = {}
 
-      let sessionData = null
-      let predictionLat = victimLat
-      let predictionLng = victimLng
-      let predictionState = stateVal
-      let predictionDistrict = districtVal
-      let sessionFeatures = {}
+      const sessionResult = await trySessionIntercept(c, lat, lng)
+      if (sessionResult?.session) {
+        const s = sessionResult.session
+        predLat = s.destination_lat || predLat
+        predLng = s.destination_lng || predLng
+        predState = s.destination_state || predState
+        predDistrict = s.destination_district || predDistrict
+        predSource = 'SESSION_INTERCEPT'
+        sessionMeta = {
+          session_id: s.session_id,
+          session_status: s.session_status,
+          session_expires_at: s.session_expires_at,
+          destination_bank_code: s.destination_bank_code,
+          last_session_activity_minutes: s.last_activity_delta_minutes,
+        }
+      }
 
-      // ── 2. Build features for YOUR XGBoost model ──────────
       let prediction
       try {
-        const incidentAt   = new Date(complaintDate)
-        const filedAt      = new Date(complaint.created_at)
+        const incidentAt = new Date(c.incidentTime)
+        const filedAt = new Date(rawRow.created_at)
         const filingLagMin = Math.max(0, (filedAt - incidentAt) / 60000)
-        const amount       = fraudAmount || 10000
+        const amount = c.fraudAmount || 10000
 
-        if (complaint.transaction_id) {
-          try {
-            const sessionRes = await axios.post(`${SESSION_RESOLVER_URL}/resolve`, {
-              transaction_id: complaint.transaction_id,
-              victim_lat: victimLat,
-              victim_lng: victimLng,
-              fraud_amount: fraudAmount
-            }, { timeout: 5000 })
-
-            if (sessionRes.data.success && sessionRes.data.session && sessionRes.data.session.session_status === 'ACTIVE') {
-              const s = sessionRes.data.session
-              predictionLat = s.destination_lat || predictionLat
-              predictionLng = s.destination_lng || predictionLng
-              predictionState = s.destination_state || predictionState
-              predictionDistrict = s.destination_district || predictionDistrict
-              sessionData = s
-              sessionFeatures = sessionRes.data.ml_features || {}
-
-              console.log(`[Engine] Session intercept → redirected prediction anchor:`)
-              console.log(`  From: ${districtVal}, ${stateVal}`)
-              console.log(`  To:   ${predictionDistrict}, ${predictionState}`)
-              console.log(`  Session: ${s.session_id} | Last active: ${s.last_activity_delta_minutes}m ago`)
-            }
-          } catch (sessionErr) {
-            console.warn(`[Engine] Session resolver unavailable: ${sessionErr.message} — using victim location`)
-          }
-        }
-
-        // Feature names MUST match xgb_feature_names.json exactly.
-        // If your feature names differ, update keys below to match.
         const features = {
-          complaint_id:          ackNo,
-          hour_of_fraud:         incidentAt.getHours(),
-          day_of_week:           incidentAt.getDay(),
-          month:                 incidentAt.getMonth() + 1,
-          is_weekend:            [0, 6].includes(incidentAt.getDay()) ? 1 : 0,
-          is_night:              (incidentAt.getHours() >= 22 || incidentAt.getHours() <= 6) ? 1 : 0,
-          filing_lag_min:        parseFloat(filingLagMin.toFixed(2)),
-          amount_log:            parseFloat(Math.log1p(amount).toFixed(4)),
-          amount_band:           getAmountBand(amount),
-          is_round_amount:       amount % 1000 < 50 ? 1 : 0,
-          amount_retention_pct:  0.94,
-          amount_start:          amount,
-          // Money mule chain features (defaults since we don't have full chain)
-          num_hops:              3,
-          chain_duration_min:    45,
-          unique_banks:          2,
-          unique_districts:      2,
-          intra_bank_ratio:      0.0,
-          vom_score:             0.60,
-          is_hot_chain:          0,
-          velocity_per_min:      parseFloat((amount / Math.max(1, filingLagMin)).toFixed(2)),
-          // Category encoding
-          fraud_type_enc:        getFraudTypeCode(fraudCategory),
-          bank_enc:              0,   // unknown at filing time
-          victim_state_enc:      getStateCode(stateVal),
-          // NCRB state-level risk priors (from your ncrb_state_priors_used.csv)
-          state_weight:          0.028,
-          crime_rate_norm:       5.2,
-          cyber_activity:        4.0,
-          historical_activity:   2.0,
-          ncrb_crime_rate_2022:  200,
+          complaint_id: c.ackNo,
+          hour_of_fraud: incidentAt.getHours(),
+          day_of_week: incidentAt.getDay(),
+          month: incidentAt.getMonth() + 1,
+          is_weekend: [0, 6].includes(incidentAt.getDay()) ? 1 : 0,
+          is_night: (incidentAt.getHours() >= 22 || incidentAt.getHours() <= 6) ? 1 : 0,
+          filing_lag_min: parseFloat(filingLagMin.toFixed(2)),
+          amount_log: parseFloat(Math.log1p(amount).toFixed(4)),
+          amount_band: getAmountBand(amount),
+          is_round_amount: amount % 1000 < 50 ? 1 : 0,
+          amount_retention_pct: 0.94,
+          amount_start: amount,
+          num_hops: 3,
+          chain_duration_min: 45,
+          unique_banks: 2,
+          unique_districts: 2,
+          intra_bank_ratio: 0.0,
+          vom_score: 0.60,
+          is_hot_chain: 0,
+          velocity_per_min: parseFloat((amount / Math.max(1, filingLagMin)).toFixed(2)),
+          fraud_type_enc: getFraudTypeCode(c.fraudCategory),
+          bank_enc: 0,
+          victim_state_enc: getStateCode(c.state),
+          state_weight: 0.028,
+          crime_rate_norm: 5.2,
+          cyber_activity: 4.0,
+          historical_activity: 2.0,
+          ncrb_crime_rate_2022: 200,
           ncrb_chargesheet_rate_2022: 75,
-          ncrb_motive_total:     100,
-          ncrb_trend_2019_2021:  0.5,
-          // GNN features (empty for single complaint, GNN needs a graph)
-          gnn_node_features:     [],
-          gnn_edge_src:          [],
-          gnn_edge_dst:          [],
-          cashout_atm_id:        null,
-          // Raw location for DBSCAN nearest-cluster lookup
-          victim_lat:            predictionLat,
-          victim_lng:            predictionLng,
-          victim_state:          predictionState,
-          victim_district:       predictionDistrict,
-          session_hop_count:    sessionFeatures.session_hop_count || 3,
-          session_age_minutes:  sessionFeatures.session_age_minutes || 60,
-          is_cross_state_session: sessionFeatures.is_cross_state_session || 0,
-          last_activity_delta_minutes: sessionFeatures.last_activity_delta_minutes || 60,
-          session_active:       sessionFeatures.session_active || 0,
+          ncrb_motive_total: 100,
+          ncrb_trend_2019_2021: 0.5,
+          gnn_node_features: [],
+          gnn_edge_src: [],
+          gnn_edge_dst: [],
+          cashout_atm_id: null,
+          victim_lat: predLat,
+          victim_lng: predLng,
+          victim_state: predState,
+          victim_district: predDistrict,
+          session_hop_count: sessionResult?.session?.session_hop_count || 3,
+          session_age_minutes: sessionResult?.session?.last_activity_delta_minutes || 60,
+          is_cross_state_session: sessionResult?.session?.destination_state && sessionResult.session.destination_state !== c.state ? 1 : 0,
+          last_activity_delta_minutes: sessionResult?.session?.last_activity_delta_minutes || 60,
+          session_active: sessionResult?.session?.session_status === 'ACTIVE' ? 1 : 0,
         }
-        
-
 
         const { data: mlResponse } = await axios.post(
           `${ML_URL}/predict`,
@@ -213,27 +262,21 @@ async function processNewComplaints() {
         )
         prediction = mlResponse
         console.log(`[Engine] ML responded: ${prediction.alert_level} | score: ${prediction.risk_score}`)
-
       } catch (mlErr) {
         console.warn(`[Engine] ML unreachable (${mlErr.message}) — using rule-based fallback`)
-        prediction = ruleBasedFallback(fraudCategory, fraudAmount)
+        prediction = ruleBasedFallback(c.fraudCategory, c.fraudAmount)
       }
 
-      // ── 3. Derive final alert fields ──────────────────────
-      const riskScore  = Math.min(1, Math.max(0, parseFloat(prediction.risk_score || 0.50)))
-      const alertLevel = prediction.alert_level ||
-                         (riskScore >= 0.80 ? 'P1' : riskScore >= 0.55 ? 'P2' : 'P3')
-      const district   = prediction.predicted_districts?.[0] || complaint.district || 'Central Delhi'
-      const coords     = DISTRICT_COORDS[district] || DEFAULT_COORDS
-      const windowMins = alertLevel === 'P1' ? 60 : alertLevel === 'P2' ? 90 : 120
-      const sessionNote = sessionData
-        ? `Session ${sessionData.session_id} intercepted — money confirmed at ${predictionDistrict}, ${predictionState}. Last network activity ${sessionData.last_activity_delta_minutes} min ago.`
+      const riskScore = Math.min(1, Math.max(0, parseFloat(prediction.risk_score || 0.50)))
+      const alertLevel = prediction.alert_level || (riskScore >= 0.80 ? 'P1' : riskScore >= 0.55 ? 'P2' : 'P3')
+      const district = prediction.predicted_districts?.[0] || predDistrict || 'Central Delhi'
+      const coords = DISTRICT_COORDS[district] || DEFAULT_COORDS
+      const shapFeatures = prediction.shap_top_features || prediction.feature_importance || []
+      const { predicted_window_start, predicted_window_end } = buildPredictionWindow(alertLevel)
+      const sessionNote = sessionMeta.session_id
+        ? `Session ${sessionMeta.session_id} intercepted — money confirmed at ${predDistrict}, ${predState}. Last network activity ${sessionMeta.last_session_activity_minutes} min ago.`
         : ''
 
-      // SHAP features from ML response (your serve/ module should return these)
-      const shapFeatures = prediction.shap_top_features || prediction.feature_importance || []
-
-      // ── 4. Find nearest ATM in predicted district ─────────
       const { data: atms } = await supabase
         .from('atm_locations')
         .select('id, bank_name, city')
@@ -241,62 +284,55 @@ async function processNewComplaints() {
         .order('risk_tier', { ascending: false })
         .limit(1)
 
-      // ── 5. Find nearest police station ────────────────────
       const { data: stations } = await supabase
         .from('police_stations')
         .select('id, name')
         .eq('state', coords.state)
         .limit(1)
 
-      // ── 6. Get latest model run ID ────────────────────────
       const { data: modelRuns } = await supabase
         .from('model_runs')
         .select('id')
         .order('training_date', { ascending: false })
         .limit(1)
 
-      // ── 7. Build actionable intelligence text ─────────────
       const intelligence =
-        `[${alertLevel}] ${fraudCategory} detected. ` +
+        `[${alertLevel}] ${c.fraudCategory} detected. ` +
         `Predicted cashout zone: ${district}, ${coords.state}. ` +
         `Risk score: ${(riskScore * 100).toFixed(0)}%. ` +
-        `Fraud amount: ₹${Number(fraudAmount).toLocaleString('en-IN')}. ` +
-        `Complaint: ${ackNo}. ` +
+        `Fraud amount: ₹${Number(c.fraudAmount).toLocaleString('en-IN')}. ` +
+        `Complaint: ${c.ackNo}. ` +
         (sessionNote ? `${sessionNote} ` : '') +
-        `Deploy response units to ATM cluster within ${windowMins} minutes. ` +
+        `Deploy response units to ATM cluster within ${alertLevel === 'P1' ? 60 : alertLevel === 'P2' ? 90 : 120} minutes. ` +
         `Alert local banks to freeze suspicious transactions.`
-
-      // ── 8. Insert predicted hotspot ───────────────────────
-      // Fix 1E: Always set window times relative to NOW() — NOT complaint_date
-      const now      = new Date()
-      const winStart = new Date(now.getTime() + 15 * 60000)         // 15 min from now
-      const winEnd   = new Date(now.getTime() + windowMins * 60000) // P1=60m, P2=90m, P3=120m
 
       const { error: insertError } = await supabase
         .from('predicted_hotspots')
         .insert([{
-          model_run_id:                modelRuns?.[0]?.id || 1,
-          complaint_id:                complaint.id,            // Fix 1D: bigint PK, NOT complaint_id text
-          cluster_id:                  prediction.cluster_id || Math.floor(Math.random() * 100),
-          center_geom:                 `SRID=4326;POINT(${coords.lng} ${coords.lat})`,
-          lat:                         coords.lat,
-          lng:                         coords.lng,
-          radius_meters:               Math.max(500, Math.round(3000 * riskScore)),
-          risk_score:                  riskScore,
-          alert_level:                 alertLevel,
-          top_fraud_category:          fraudCategory,
+          model_run_id: modelRuns?.[0]?.id || 1,
+          complaint_id: c.dbId,
+          cluster_id: prediction.cluster_id || Math.floor(Math.random() * 100),
+          center_geom: `SRID=4326;POINT(${coords.lng} ${coords.lat})`,
+          lat: predLat,
+          lng: predLng,
+          radius_meters: Math.max(500, Math.round(3000 * riskScore)),
+          risk_score: riskScore,
+          alert_level: alertLevel,
+          top_fraud_category: c.fraudCategory,
           total_complaints_in_cluster: 1,
-          total_fraud_volume:          fraudAmount,
-          predicted_window_start:      winStart.toISOString(),
-          predicted_window_end:        winEnd.toISOString(),
-          atm_location_id:             atms?.[0]?.id || null,
-          assigned_police_station_id:  stations?.[0]?.id || null,
-          district:                    district,
-          state:                       coords.state,
-          actionable_intelligence:     intelligence,
-          shap_top_features:           JSON.stringify(shapFeatures),
-          ml_raw_output:               JSON.stringify(prediction),
-          status:                      'ACTIVE',
+          total_fraud_volume: c.fraudAmount,
+          predicted_window_start,
+          predicted_window_end,
+          atm_location_id: atms?.[0]?.id || null,
+          assigned_police_station_id: stations?.[0]?.id || null,
+          district,
+          state: predState,
+          actionable_intelligence: intelligence,
+          shap_top_features: JSON.stringify(shapFeatures),
+          ml_raw_output: JSON.stringify(prediction),
+          prediction_source: predSource,
+          ...sessionMeta,
+          status: 'ACTIVE',
         }])
 
       if (insertError) {
@@ -304,14 +340,13 @@ async function processNewComplaints() {
         continue
       }
 
-      // ── 9. Mark complaint as processed ────────────────────
       await supabase
         .from('complaints')
         .update({ status: 'processed' })
-        .eq('id', complaint.id)
+        .eq('id', rawRow.id)
 
       console.log(
-        `[Engine] ✅ [${alertLevel}] ${complaint.complaint_id}` +
+        `[Engine] ✅ [${alertLevel}] ${c.ackNo}` +
         ` → ${district} (${(riskScore * 100).toFixed(0)}%)`
       )
     }

@@ -18,7 +18,7 @@
 // Run: node sessionSimulator.js
 // Then start resolver: npm start (runs sessionResolver.js on port 8002)
 
-require('dotenv').config({ path: '../backend/.env' })
+require('dotenv').config({ path: '.env' })
 const { createClient } = require('@supabase/supabase-js')
 const { createSession, getAllSessions } = require('./sessionRegistry')
 
