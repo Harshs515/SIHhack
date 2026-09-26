@@ -49,6 +49,8 @@ export async function POST(request: Request) {
       .from('complaints')
       .insert({
         complaint_id: complaintId,
+        acknowledgement_no: payload.acknowledgement_no,
+        victim_name: payload.victim_name,
         complaint_date: payload.incident_timestamp ?? new Date().toISOString(),
         crime_category: payload.fraud_category,
         state: payload.state ?? null,

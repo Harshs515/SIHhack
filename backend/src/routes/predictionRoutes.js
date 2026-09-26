@@ -13,7 +13,8 @@ router.get('/hotspots', async (req, res) => {
       .select(`
         *,
         atm_locations!atm_location_id(bank_name, city, district, state, geom),
-        police_stations!assigned_police_station_id(name, station_code, contact_number, city, geom)
+        police_stations!assigned_police_station_id(name, station_code, contact_number, city, geom),
+        complaints!complaint_id(complaint_id)
       `);
 
     if (status) {
@@ -34,18 +35,21 @@ router.get('/hotspots', async (req, res) => {
       } else {
         fallbackQuery = fallbackQuery.in('status', ['ACTIVE', 'ACKNOWLEDGED']);
       }
-      const [hRes, aRes, psRes] = await Promise.all([
+      const [hRes, aRes, psRes, cRes] = await Promise.all([
         fallbackQuery,
         supabase.from('atm_locations').select('*'),
         supabase.from('police_stations').select('*'),
+        supabase.from('complaints').select('id, complaint_id')
       ]);
       if (hRes.error) throw hRes.error;
       const atmsMap = Object.fromEntries((aRes.data || []).map((a) => [a.id, a]));
       const psMap = Object.fromEntries((psRes.data || []).map((p) => [p.id, p]));
+      const cMap = Object.fromEntries((cRes.data || []).map((c) => [c.id, c]));
       hotspotRows = (hRes.data || []).map((h) => ({
         ...h,
         atm_locations: atmsMap[h.atm_location_id] || null,
         police_stations: psMap[h.assigned_police_station_id] || null,
+        complaints: cMap[h.complaint_id] || null,
       }));
     }
 
@@ -54,6 +58,7 @@ router.get('/hotspots', async (req, res) => {
       // Flatten nested joined objects
       const atm = h.atm_locations || {};
       const ps = h.police_stations || {};
+      const cRef = h.complaints || {};
 
       const atmCoords = parseWKBPoint(atm.geom);
       const psCoords = parseWKBPoint(ps.geom);
@@ -68,6 +73,8 @@ router.get('/hotspots', async (req, res) => {
         // Remove nested objects to avoid circular/nested structure on client
         atm_locations: undefined,
         police_stations: undefined,
+        complaints: undefined,
+        ncrp_id: cRef.complaint_id || `ID-${h.complaint_id}`,
         lat,
         lng,
         center_latitude: lat,

@@ -264,11 +264,29 @@ async function processNewComplaints() {
           session_active: sessionResult?.session?.session_status === 'ACTIVE' ? 1 : 0,
         }
 
-        const { data: mlResponse } = await axios.post(
-          `${ML_URL}/predict`,
-          features,
-          { timeout: 8000 }
-        )
+        let mlResponse = null
+        let retries = 3
+        for (let i = 0; i < retries; i++) {
+          try {
+            const res = await axios.post(
+              `${ML_URL}/predict`,
+              features,
+              { timeout: 10000 }
+            )
+            mlResponse = res.data
+            break
+          } catch (mlErr) {
+            if (mlErr.response && mlErr.response.status === 429) {
+              console.warn(`[Engine] ML 429 Rate Limit hit. Retrying in ${(i + 1) * 3} seconds...`)
+              await sleep((i + 1) * 3000)
+            } else {
+              throw mlErr
+            }
+          }
+        }
+        if (!mlResponse) {
+          throw new Error('Request failed with status code 429')
+        }
         prediction = mlResponse
         console.log(`[Engine] ML responded: ${prediction.alert_level} | score: ${prediction.risk_score}`)
       } catch (mlErr) {

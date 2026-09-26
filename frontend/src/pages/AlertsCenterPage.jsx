@@ -283,6 +283,9 @@ export default function AlertsCenterPage({ hotspots = [], setHotspots, stats = {
                       </span>
                       <strong>{typeof item.id === 'number' ? `ALT-${item.id}` : item.id}</strong>
                     </div>
+                    {item.ncrp_id && (
+                      <div style={{ fontSize: '0.72rem', color: '#00e5ff', marginTop: '2px', fontWeight: 700 }}>{item.ncrp_id}</div>
+                    )}
                     <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>{timeStr}</div>
                   </td>
                   <td>

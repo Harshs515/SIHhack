@@ -433,24 +433,24 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
             </div>
 
             {/* Linked ML Hotspot Intelligence */}
-            {selectedComplaint.alert_level && (
+            {(selectedComplaint.alert_level || selectedComplaint.prediction?.alert_level) && (
               <div style={{ background: 'rgba(0, 229, 255, 0.08)', border: '1px solid rgba(0, 229, 255, 0.25)', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#00e5ff' }}>
                     Linked ML Hotspot & Extraction Forecast
                   </span>
-                  <span className={`pulse-badge ${selectedComplaint.alert_level === 'P1' ? 'danger' : 'warning'}`}>
-                    {selectedComplaint.alert_level} ALERT
+                  <span className={`pulse-badge ${(selectedComplaint.alert_level || selectedComplaint.prediction?.alert_level) === 'P1' ? 'danger' : 'warning'}`}>
+                    {selectedComplaint.alert_level || selectedComplaint.prediction?.alert_level} ALERT
                   </span>
                 </div>
 
                 <p style={{ fontSize: '0.76rem', color: '#cbd5e1', lineHeight: 1.45 }}>
-                  {selectedComplaint.actionable_intelligence || 'Real-time high risk ATM withdrawal anomaly detected in target district. Proximity patrol alerted.'}
+                  {selectedComplaint.actionable_intelligence || selectedComplaint.prediction?.actionable_intelligence || 'Real-time high risk ATM withdrawal anomaly detected in target district. Proximity patrol alerted.'}
                 </p>
 
-                {selectedComplaint.risk_score && (
+                {(selectedComplaint.risk_score || selectedComplaint.prediction?.risk_score) && (
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-                    Threat Risk Score: <strong style={{ color: '#ff385c' }}>{((selectedComplaint.risk_score) * 100).toFixed(0)}%</strong>
+                    Threat Risk Score: <strong style={{ color: '#ff385c' }}>{(((selectedComplaint.risk_score || selectedComplaint.prediction?.risk_score)) * 100).toFixed(0)}%</strong>
                   </div>
                 )}
               </div>
