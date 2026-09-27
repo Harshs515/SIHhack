@@ -165,12 +165,14 @@ export default function AuthLandingPage() {
 
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+        gridTemplateColumns: 'minmax(0, 860px)',
+        justifyContent: 'center',
         gap: '20px',
         width: '100%',
         maxWidth: '1280px'
       }}>
 
+        {/*
         <div
           onClick={() => setSelectedRole('field_officer')}
           className="glass-panel"
@@ -320,6 +322,7 @@ export default function AuthLandingPage() {
             </button>
           </form>
         </div>
+        */}
 
         <div
           onClick={() => setSelectedRole('officer')}
