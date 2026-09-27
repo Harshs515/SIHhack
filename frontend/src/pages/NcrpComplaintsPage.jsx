@@ -308,6 +308,7 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
           <thead>
             <tr>
               <th>Complaint ID</th>
+              <th>Name</th>
               <th>Date & Time</th>
               <th>Crime Category</th>
               <th>Sub Category</th>
@@ -319,13 +320,13 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
           <tbody>
             {isLoadingInitial ? (
               <tr>
-                <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                   Loading complaints from database...
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                   No complaints found. Try adjusting your search or submit a new complaint.
                 </td>
               </tr>
@@ -347,6 +348,7 @@ export default function NcrpComplaintsPage({ complaints = null, onAddComplaint }
                     title="Click to view details"
                   >
                     <td><strong style={{ color: '#00e5ff' }}>{c.complaint_id || c.acknowledgement_no}</strong></td>
+                    <td>{c.victim_name || c.victimName || 'N/A'}</td>
                     <td>
                       <div style={{ fontWeight: 600, color: '#fff' }}>{formattedDate}</div>
                       <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{formattedTime}</div>
