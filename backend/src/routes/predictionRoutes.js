@@ -123,7 +123,7 @@ router.get('/stats', async (req, res) => {
     todayStart.setHours(0, 0, 0, 0);
 
     const [cRes, hRes, aRes, psRes, cTodayRes] = await Promise.all([
-      supabase.from('complaints').select('id, amount'),  // actual DB column is 'amount' not 'fraud_amount'
+      supabase.from('complaints').select('id, amount, raw_reference'),
       supabase.from('predicted_hotspots').select('id, risk_score, alert_level, status').in('status', ['ACTIVE', 'ACKNOWLEDGED']),
       supabase.from('atm_locations').select('id'),
       supabase.from('police_stations').select('id'),
@@ -131,7 +131,16 @@ router.get('/stats', async (req, res) => {
     ]);
 
     const totalFraudVolume = (cRes.data || []).reduce(
-      (sum, c) => sum + (parseFloat(c.amount || c.fraud_amount) || 0),
+      (sum, c) => {
+        let amt = parseFloat(c.amount) || 0;
+        if (!amt && c.raw_reference) {
+          try {
+            const raw = typeof c.raw_reference === 'string' ? JSON.parse(c.raw_reference) : c.raw_reference;
+            amt = parseFloat(raw.fraud_amount || raw.amount_lost || 0) || 0;
+          } catch (e) {}
+        }
+        return sum + amt;
+      },
       0
     );
 
