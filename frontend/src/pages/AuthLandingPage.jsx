@@ -16,7 +16,7 @@ import {
   findPersonnelByBadge,
   verifyPersonnelPin
 } from '../data/personnel';
-import { saveSession } from '../utils/session';
+import { useAuth } from '../context/AuthContext';
 
 const inputStyle = {
   width: '100%',
@@ -32,6 +32,7 @@ const iconInputStyle = {
 
 export default function AuthLandingPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const [selectedRole, setSelectedRole] = useState('officer');
 
@@ -103,7 +104,7 @@ export default function AuthLandingPage() {
       setOfficerError(`Invalid PIN for ${person.name}.`);
       return;
     }
-    saveSession({ role: 'investigator', profile: person });
+    login({ role: 'investigator', profile: person });
     navigate('/dashboard');
   };
 
@@ -121,7 +122,7 @@ export default function AuthLandingPage() {
       setFieldError(`Invalid PIN for ${person.name}.`);
       return;
     }
-    saveSession({ role: 'field_officer', profile: person });
+    login({ role: 'field_officer', profile: person });
     navigate('/field-officer');
   };
 
