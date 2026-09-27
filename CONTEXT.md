@@ -1,191 +1,735 @@
-# SIH26184 / TRINETRA Codebase Context
+This is the summary for NCRP Portal that i am using:
+I’m reviewing the NCRP app and its API contract so I can summarize the portal accurately, including the data model, payload shape, and project layout.
 
-## Purpose
+Searched for regex `NCRP|complaint|complaints` (`**/{sih-ncrp-main/**,frontend/src/**,backend/src/**}`), 321 results
 
-TRINETRA (also called CyberDrishti in the UI) is a hackathon prototype for the Smart India Hackathon 2026 problem SIH26184: predict likely cash-withdrawal locations from cybercrime complaints so law-enforcement agencies can intervene during the short window after a fraud report.
+Read 
 
-The intended intelligence flow is:
+Read , lines 1 to 260
 
-1. Ingest cybercrime complaints from the NCRP/1930 workflow.
-2. Group nearby active complaints into spatial clusters with Haversine DBSCAN.
-3. Rank nearby ATMs with a withdrawal-risk score derived from complaint and ATM features.
-4. Match each predicted hotspot to a nearby cyber-police station.
-5. Store active hotspots and expose them to an operational command center for maps, alerts, analytics, and dispatch.
+Read 
 
-This is a demonstration/prototype. Several UI modules use static mock data and simulated actions when services are unavailable.
+Read , lines 1 to 260
 
-## Repository Layout
+Read 
 
-The tracked project root is the directory containing this file.
+Read 
 
-```text
-.
-├── backend/                 Node.js/Express REST API
-│   ├── package.json
-│   └── src/
-│       ├── server.js        Express bootstrap and route registration
-│       ├── db.js            Legacy query-compatible Supabase wrapper
-│       ├── supabase.js      Supabase client and PostGIS EWKB parser
-│       └── routes/
-│           ├── complaintRoutes.js
-│           ├── predictionRoutes.js
-│           └── chatRoutes.js
-├── database/
-│   ├── schema.sql           PostgreSQL/PostGIS schema and indexes
-│   └── seed_data.py         Generates synthetic seed.sql data
-├── frontend/
-│   ├── package.json
-│   ├── vite.config.js        Vite and PWA/workbox configuration
-│   ├── public/               Manifests and icons
-│   └── src/
-│       ├── App.jsx           Router, shared state, polling, ML trigger
-│       ├── main.jsx          React entry point and PWA provider
-│       ├── index.css         Theme tokens and global styling
-│       ├── api/api.js        Backend REST client
-│       ├── services/         Direct Supabase browser helpers
-│       ├── data/mockData.js  Offline/demo intelligence data
-│       ├── components/       Shared navigation, maps, panels, charts, PWA UI
-│       └── pages/             Route-level operational screens
-├── ml_service/               FastAPI prediction microservice
-│   ├── app.py                Pipeline and model-run endpoints
-│   ├── dbscan_clustering.py  Haversine spatial DBSCAN
-│   └── xgboost_model.py      Feature scoring and police-station matching
-├── orchestration/dags/       Airflow DAG that triggers the ML pipeline
-├── simulation/               Local Apache Spark telemetry example
-├── csv_to_db.py              Tkinter CSV-to-PostgreSQL/PostGIS uploader
-├── docker-compose.yml        Database, API, ML, Airflow, and Spark services
-├── README.md                 Short architecture and quick-start guide
-└── SETUP.md                  Team onboarding and local/container setup
+I’ve confirmed the portal’s actual intake fields and the API contract; I’m now aligning that with the app structure so the summary reflects both the frontend flow and the backend schema.
+
+Read 
+
+Read 
+
+## NCRP Portal overview
+
+The NCRP portal in this project is a citizen-facing cybercrime complaint intake and tracking system built around a complaint workflow:
+- mobile verification
+- complainant details
+- cyber-fraud details
+- suspect information
+- review and submit
+- acknowledgement/track status
+
+The live citizen UI is implemented in `page.tsx`, and the backend API that persists it is in `route.ts`. The older React dashboard and API layer in the main repo also follow the same complaint pattern in `NcrpCitizenPortalPage.jsx` and `api.js`.
+
+This portal is meant for reporting financial fraud/cybercrime cases such as:
+- UPI / internet banking fraud
+- vishing / scam calls
+- card/SIM-swap fraud
+- AEPS / wallet / demat fraud
+- digital arrest / impersonation scams
+
+---
+
+## What kind of data it takes
+
+The intake form captures both:
+1. Identity/contact information of the complainant
+2. Fraud details and investigation metadata
+
+### 1) Complainant details
+From `page.tsx`:
+- mobile number
+- full name
+- email ID
+- city / district
+- state / union territory
+
+### 2) Fraud / crime category
+Examples include:
+- UPI Related Fraud
+- Internet Banking Related Fraud
+- Fraud Call / Vishing
+- AEPS Fraud
+- Business Email Compromise
+- Debit / Credit Card Fraud / SIM Swap
+- Demat / Depository Fraud
+- E-Wallet Related Fraud
+
+### 3) Money-loss fields
+- have you lost money?
+- bank name
+- account number
+- transaction ID / UTR
+- transaction date
+- time
+- amount lost
+- incident platform(s) used
+
+### 4) Suspect details
+- suspect bank
+- suspect account / UPI ID
+- suspect transaction ID
+- suspect amount
+- suspect transaction date
+
+### 5) Narrative fields
+- description of the incident
+- platform used: WhatsApp, Telegram, Instagram, Facebook, X, SMS, email, call, etc.
+- other platform if not listed
+
+### 6) Tracking / operational metadata
+- acknowledgement number
+- complaint status
+- incident timestamp
+- district / state / city
+- amount
+- fraud category
+
+---
+
+## Fields the system actually uses
+
+The app builds a payload like this in `page.tsx`:
+
+```json
+{
+  "acknowledgement_no": "NCRP-20260925-123456",
+  "fraud_category": "UPI Related Fraud",
+  "fraud_amount": 25000,
+  "victim_name": "Rajesh Sharma",
+  "victim_phone": "+919876543210",
+  "victim_email": "rajesh@example.com",
+  "victim_bank": "HDFC Bank",
+  "victim_account_no": "123456789012",
+  "mule_bank_name": "SBI",
+  "mule_account_no": "9876543210",
+  "incident_timestamp": "2026-09-25T10:15:00.000Z",
+  "state": "Delhi",
+  "district": "Rohini",
+  "city": "Rohini",
+  "transaction_id": "UTR123456789",
+  "lost_money": "Yes",
+  "description": "Fraudster contacted victim via WhatsApp ...",
+  "amount_lost": 25000,
+  "suspect_transaction_id": "MULE-987",
+  "suspect_amount": 25000,
+  "incident_platforms": ["WhatsApp", "Other"]
+}
 ```
 
-There is also an untracked nested `SIHhack-main/` directory that mirrors the project. Treat the outer tracked root as canonical unless explicitly comparing or recovering files. Generated PWA files under `frontend/dev-dist/` may be modified build artifacts, not primary source.
+The API layer in `route.ts` accepts a type like:
 
-## Technology Stack
-
-- Frontend: React 18, Vite, React Router, React Leaflet/Leaflet, Recharts, Lucide React, Tailwind/PostCSS, and `vite-plugin-pwa`.
-- Frontend styling: custom CSS variables with dark/light themes, glass-panel styling, responsive dashboard layouts, Google Fonts (Outfit, Plus Jakarta Sans, Space Grotesk, JetBrains Mono), and Leaflet map layers.
-- Backend: Node.js 18 container, Express 4, CORS, dotenv, native `fetch`, and `@supabase/supabase-js`.
-- Data store: PostgreSQL 16 with PostGIS 3.4, using `GEOGRAPHY(POINT, 4326)` and GiST spatial indexes.
-- ML service: Python 3.10, FastAPI/Uvicorn, pandas, NumPy, scikit-learn DBSCAN, XGBoost, psycopg2, and Pydantic.
-- Batch/orchestration: Apache Spark 3.5 simulation and Apache Airflow 2.8.1, with a 15-minute prediction DAG.
-- Deployment: Docker Compose bridge network with named PostgreSQL volume; frontend/backend can also run locally with npm for faster development.
-
-## Frontend Behavior
-
-`frontend/src/App.jsx` owns the shared complaint, hotspot, ATM, police-station, ML-status, and theme state. It initializes from `mockData.js`, polls the backend every 20 seconds, and replaces mock collections when API data is available. Failed requests restore the mock intelligence cache. The ML button calls the backend trigger endpoint and refreshes data; offline failure simulates a short computation state.
-
-Registered routes include:
-
-| Route | Screen | Main purpose |
-| --- | --- | --- |
-| `/auth`, `/login` | Authentication landing | Entry gateway/demo role selection |
-| `/dashboard` | Dashboard | Operational overview and module launchpad |
-| `/gis-heatmap` | GIS Heatmap | Complaints, hotspots, ATMs, police stations, and risk circles on Leaflet |
-| `/mule-graph` | Mule Graph | Demo money-flow/account-chain investigation |
-| `/lea-interface` | LEA Dispatch | Tactical police dispatch workflow |
-| `/alerts-center` | Alerts Center | Prioritized alert stream and acknowledgement UI |
-| `/ncrp-complaints` | NCRP Complaints | Complaint intake, search, presets, and simulated NLP extraction |
-| `/ncrp-portal` | Citizen Portal | Citizen-facing complaint simulation |
-| `/analytics-reports` | Analytics | Recharts reports, benchmarks, and simulated dossier export |
-| `/field-officer` | Field Officer Portal | Field-officer/PWA workflow |
-| `/pipeline-topology` | Pipeline Topology | Architecture/pipeline visualization |
-
-The global Navbar exposes theme switching and ML triggering. `AiChatbot.jsx` provides a voice/text assistant using browser Speech Recognition and Speech Synthesis plus the backend keyword-based chat endpoint. `PWAProvider`, `PWAInstallModal`, and `usePWAInstall` support install/update flows. The service worker caches API responses, map tiles, fonts, and images.
-
-## Backend API
-
-The Express server listens on `PORT` or `5000`, enables CORS and JSON parsing, and mounts:
-
-- `GET /api/health`: returns health and timestamp.
-- `GET /api/complaints`: returns complaints ordered by incident time, including parsed latitude/longitude.
-- `POST /api/complaints`: inserts a complaint into Supabase and returns the inserted record. The route accepts acknowledgement, victim, fraud, bank, address, time, and coordinates fields.
-- `GET /api/complaints/:acknowledgementNo`: client helper exists for tracking, but verify the current backend route before relying on it.
-- `GET /api/predictions/hotspots`: returns active hotspots enriched with ATM, police-station, and model-run data.
-- `GET /api/predictions/atms`: returns all candidate ATMs with coordinates.
-- `GET /api/predictions/police-stations`: returns all police stations with coordinates.
-- `GET /api/predictions/model-runs`: returns the latest ten model runs.
-- `POST /api/predictions/trigger`: calls `${ML_SERVICE_URL}/api/ml/process-pipeline`.
-- `POST /api/chat`: keyword-matches a knowledge base and returns a reply plus optional frontend route after a simulated 400 ms delay.
-
-The API reads records through Supabase rather than the `pg` pool described by some older documentation. `db.js` remains as a compatibility wrapper for legacy SQL-like callers and converts PostGIS EWKB points into coordinates.
-
-## Database Model
-
-`database/schema.sql` enables PostGIS and creates:
-
-- `police_stations`: jurisdiction, contact, city/state, point geometry.
-- `cybercrime_complaints`: acknowledgement, victim/contact, fraud category and amount, incident time, mule bank/account, status, point geometry.
-- `atm_locations`: ATM identity, bank/address, city/state, risk tier, point geometry.
-- `model_runs`: model version, algorithm, and accuracy/precision/recall/F1 provenance.
-- `predicted_hotspots`: cluster center/radius, risk score, complaint/fraud totals, prediction window, ATM/police foreign keys, intelligence text, and status.
-
-GiST indexes accelerate geometry queries; B-tree indexes cover complaint timestamps/categories and hotspot status. `database/seed_data.py` generates synthetic data for three cities (Delhi NCR, Mumbai, Bengaluru), including police stations, ATMs, 100 complaints, and an initial model run. It writes `database/seed.sql`; it does not itself insert into the database.
-
-## ML Pipeline
-
-`POST /api/ml/process-pipeline` in `ml_service/app.py` performs the following:
-
-1. Opens PostgreSQL using `DATABASE_URL`.
-2. Gets the latest model run, creating a default `v1.0.4-spatial` record when none exists.
-3. Fetches `UNDER_INVESTIGATION` complaints and their PostGIS coordinates.
-4. Stops successfully with zero hotspots when fewer than two complaints exist or no DBSCAN clusters are found.
-5. Runs `perform_spatial_dbscan_clustering` with a 3 km Haversine epsilon and minimum two complaints.
-6. Loads ATMs and police stations, expires existing `ACTIVE` hotspots, and scores each cluster.
-7. Uses `predict_atm_withdrawal_risk` to filter ATMs within 5 km, generate features, compute a weighted logistic-style XGBoost-compatible score, select the top ATM, and choose the nearest police station.
-8. Inserts active hotspots with a 45-minute prediction window and actionable intelligence.
-
-Despite the module name and product language, the current scoring code does not load a trained XGBoost model; it computes a hand-weighted probability from engineered features and clips it to 0.15-0.98. Treat model metrics and advanced NLP/graph/streaming claims in demo screens as prototype/demo content unless implemented elsewhere.
-
-## Service Topology and Ports
-
-| Service | Default port | Compose role |
-| --- | ---: | --- |
-| PostgreSQL/PostGIS | 5432 | `postgres`, database `cybercrime_db` |
-| Express API | 5000 | `backend` |
-| FastAPI ML engine | 8000 | `ml-service`, Swagger at `/docs` |
-| React/Vite | 3000 | `frontend` |
-| Airflow webserver | 8080 | `airflow-webserver` |
-| Spark master UI | 8081 | `spark-master` |
-| Spark master protocol | 7077 | `spark-master` |
-
-The Compose network is `sih_network`; the PostgreSQL data volume is `pgdata`. The Airflow DAG calls `http://ml-service:8000/api/ml/process-pipeline` every 15 minutes with one retry after five minutes. `simulation/spark_simulation.py` is a local batch example that flags telemetry with fraud amounts of at least 200,000; it is not wired into the database pipeline.
-
-## Configuration and Run Commands
-
-For local development:
-
-```bash
-docker compose up -d postgres
-python database/seed_data.py
-cd backend && npm install && npm run dev
-cd frontend && npm install && npm run dev
-docker compose up -d ml-service
+```ts
+type ComplaintPayload = {
+  acknowledgement_no?: string
+  fraud_category?: string
+  fraud_amount?: number
+  victim_name?: string
+  victim_phone?: string
+  victim_email?: string
+  victim_bank?: string
+  victim_account_no?: string
+  mule_bank_name?: string
+  mule_account_no?: string
+  incident_timestamp?: string
+  state?: string
+  district?: string
+  city?: string
+  transaction_id?: string
+}
 ```
 
-Useful environment variables:
+Important point: the app sends a richer payload, but the persisted DB insert is narrower and maps fields into a database-friendly shape.
 
-- Backend: `PORT`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `ML_SERVICE_URL`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS`.
-- Frontend: `VITE_API_BASE_URL` and optionally `VITE_SUPABASE_ANON_KEY` for direct browser Supabase helpers.
-- ML service: `DATABASE_URL`.
+---
 
-Frontend scripts are `npm run dev`, `npm run build`, and `npm run preview`. Backend scripts are `npm start` and `npm run dev`. The frontend dev server binds to `0.0.0.0:3000`; the backend defaults to port 5000.
+## What API call it sends
 
-## Important Caveats
+The portal sends a `POST` request to:
 
-- There is no visible backend authentication or authorization layer; routes are open behind CORS.
-- `backend/src/supabase.js` contains a hard-coded secret fallback. Remove secrets from source, rotate any exposed key, and require environment configuration before deployment.
-- `backend/src/routes/complaintRoutes.js` inserts `status: 'ACTIVE'`, while the ML query only processes `status = 'UNDER_INVESTIGATION'`; align these statuses if newly submitted complaints should enter prediction.
-- `frontend/src/services/supabase.js` contains a public Supabase URL and reads an anon key from Vite environment; direct browser access should be reviewed against Supabase RLS policies.
-- Several pages use mock data, setTimeout-based simulations, or UI-only export/dispatch actions. Neo4j, Kafka, Redis, FCM, real NLP, and true model training are referenced in product copy but are not represented as Compose services or implemented as end-to-end integrations in the current tree.
-- The root README has an outdated `pg`-pool description; current backend route implementations use Supabase REST/JS.
-- Generated files under `frontend/dev-dist/` should generally be regenerated by the Vite/PWA build instead of edited manually.
+`/api/complaints`
 
-## Suggested Change Boundaries
+with JSON body as above.
 
-- UI and shared state: `frontend/src/App.jsx`, `frontend/src/pages/`, `frontend/src/components/`, `frontend/src/index.css`.
-- Frontend API contract: `frontend/src/api/api.js`.
-- Backend HTTP behavior: `backend/src/server.js` and `backend/src/routes/`.
-- Supabase/PostGIS coordinate handling: `backend/src/supabase.js` and `frontend/src/services/supabase.js`.
-- Schema/data contract: `database/schema.sql` and `database/seed_data.py`.
-- Prediction behavior: `ml_service/app.py`, `ml_service/dbscan_clustering.py`, and `ml_service/xgboost_model.py`.
-- Scheduling/runtime wiring: `docker-compose.yml` and `orchestration/dags/cybercrime_pipeline.py`.
+The call is made in `page.tsx` using:
+
+```ts
+fetch('/api/complaints', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(payload)
+})
+```
+
+And it also supports tracking with:
+
+`GET /api/complaints?id=<acknowledgement_number>`
+
+This is implemented in `route.ts`.
+
+---
+
+## What the backend stores
+
+The main complaint table is defined in `schema.sql`. The relevant schema is:
+
+- `acknowledgement_no`
+- `victim_name`
+- `victim_contact`
+- `fraud_category`
+- `fraud_amount`
+- `incident_timestamp`
+- `mule_bank_name`
+- `mule_account_no`
+- `victim_address`
+- `geom` (GIS coordinates)
+- `status`
+- `created_at`
+- `updated_at`
+
+The Next.js API then inserts into Supabase with a smaller subset:
+
+```ts
+await supabase
+  .from('complaints')
+  .insert({
+    complaint_id: complaintId,
+    complaint_date: payload.incident_timestamp ?? new Date().toISOString(),
+    crime_category: payload.fraud_category,
+    state: payload.state ?? null,
+    district: payload.district ?? null,
+    city: payload.city ?? null,
+    amount: payload.fraud_amount ?? null,
+    status: 'submitted',
+  })
+```
+
+### Field mapping
+The system uses a naming bridge between portal and database:
+
+- `acknowledgement_no` → `complaint_id`
+- `fraud_category` → `crime_category`
+- `fraud_amount` → `amount`
+- `incident_timestamp` → `complaint_date`
+
+---
+
+## Project structure
+
+### 1) Main portal app
+`sih-ncrp-main`
+- `page.tsx`: multi-step complaint form and tracking flow
+- `route.ts`: POST/GET complaint API
+- `ui`: reusable UI components
+- `utils.ts`: utility helpers
+- `public`: static assets
+
+### 2) Older operational dashboard
+`src`
+- `NcrpCitizenPortalPage.jsx`: older citizen portal
+- `NcrpComplaintsPage.jsx`: complaint triage dashboard
+- `api.js`: API wrappers
+- `components`: UI modules like map, analytics, navbar, sidebar, etc.
+
+### 3) Backend API
+`src`
+- `server.js`: Express entry point
+- `complaintRoutes.js`: complaint CRUD and tracking logic
+- `supabase.js`: Supabase client config
+
+### 4) Data and analytics
+- `schema.sql`: database schema
+- `ml-services`: model training, data splits, and prediction pipeline
+- `session-intercept`: session simulation / interception utilities
+
+---
+
+## High-level summary
+
+This NCRP portal is effectively a digital cybercrime complaint intake system with:
+- multilingual citizen form
+- OTP/mobile verification
+- complaint registration
+- complaint tracking by acknowledgement ID
+- backend persistence in Supabase/Postgres
+- GIS/analytics-ready complaint data for hotspot detection and law-enforcement triage
+
+So the portal is not just a form; it is a complaint ingestion + monitoring layer feeding into the broader cybercrime intelligence and prediction platform.
+
+If you want, I can also give you:
+1. a field-by-field schema table for the portal, or
+2. a “request/response contract” version of the API exactly as used by the frontend.
+
+
+I’m reviewing the app structure and the key frontend/backend files so I can give you a precise architecture summary without the excluded folders.
+
+Read 
+
+Read 
+
+Read 
+
+Read , lines 1 to 260
+
+Read , lines 1 to 260
+
+Read 
+
+Read 
+
+Read 
+
+I’ve confirmed the core backend and routing shape; I’m checking the page components and data layer so the summary reflects how the UI actually consumes the API.
+
+Read , lines 1 to 260
+
+Read , lines 1 to 260
+
+Read , lines 1 to 260
+
+Read , lines 1 to 220
+
+Read 
+
+Read 
+
+## Project purpose
+
+This project is a cybercrime intelligence and predictive policing dashboard for the Ministry of Home Affairs use case. Its goal is to detect suspicious cybercrime complaint patterns, forecast likely ATM/cash withdrawal hotspots in advance, and help officers respond before fraud money is withdrawn.
+
+In simple terms, the system does three jobs:
+
+- Collects cybercrime complaints and victim details
+- Finds clusters of risky behavior using spatial and fraud analytics
+- Shows the risk on a live dashboard so LEA teams and command centers can act quickly
+
+The app combines:
+- React frontend for visualization and operator workflows
+- Node.js + Express backend for API endpoints
+- PostgreSQL/PostGIS for geospatial data storage
+- Live fraud/ATM/police station data from a Supabase-backed data layer
+- ML-driven hotspot prediction logic
+
+---
+
+## High-level architecture
+
+The codebase is split into a few main layers:
+
+- Frontend: React app with pages, reusable UI components, map visualization, analytics panels, forms, alerts
+- Backend: Express REST API that serves complaint data, hotspot predictions, ATMs, police stations, and model run stats
+- Database layer: PostGIS tables storing complaints, predicted hotspots, ATM locations, police stations, and model metadata
+- Supporting setup: Docker, environment config, sample data generation, database schema
+
+The frontend is designed like a command center dashboard, while the backend acts as the data bridge between the UI and the database/ML pipeline.
+
+---
+
+## Project structure summary
+
+Excluding the folders you asked not to include, the relevant structure is:
+
+- Root:
+  - README and setup documents
+  - `docker-compose.yml` for services
+  - database schema and seed scripts
+  - backend app
+  - frontend app
+
+- Backend:
+  - Node Express server
+  - API routes for complaints, predictions, and chat
+  - Supabase integration layer
+
+- Frontend:
+  - App shell and router
+  - Navbar and global chatbot
+  - Dashboard and operational pages
+  - Map and analytics components
+  - API helper layer
+  - Mock data fallback files
+
+- Database:
+  - police stations
+  - complaints
+  - ATM locations
+  - model runs
+  - predicted hotspots
+
+This is the real functional part of the repo for the application itself.
+
+---
+
+## What the backend does
+
+The backend is the data and intelligence layer.
+
+### Main backend responsibilities
+
+1. Exposes REST APIs
+   - Complaint fetching and search
+   - Hotspot queries by status/alert level
+   - ATM and police station metadata
+   - Summary stats
+   - Model run history
+   - Triggering ML prediction pipeline
+   - Acknowledge and resolve alert actions
+
+2. Connects to Supabase
+   - It uses a Supabase client to query and update database tables
+   - It converts PostGIS geography points into latitude/longitude for the frontend
+
+3. Maps raw database rows to frontend-friendly objects
+   - For complaints, fields are normalized into names like victim_name, fraud_category, fraud_amount, district, state, latitude, longitude
+   - For hotspot rows, it derives risk tier, ATM info, police station info, bank name, risk score, and actionable intelligence
+
+4. Provides live operational logic
+   - Acknowledge alert endpoint updates hotspot status
+   - Resolve endpoint marks an alert resolved
+   - Trigger endpoint calls the ML service if available, and falls back to a Node-based spatial pipeline when it is not
+
+### Backend route logic
+
+The key APIs are:
+
+- Complaints API
+  - Get all complaints
+  - Search complaints
+  - Get a complaint by acknowledgement number
+  - Create a complaint
+  - Track complaint status
+
+- Prediction API
+  - Get hotspots
+  - Get stats
+  - Get ATMs
+  - Get police stations
+  - Get model runs
+  - Trigger prediction pipeline
+  - Acknowledge/resolve hotspot
+
+This is the backbone of the whole application.
+
+---
+
+## What the frontend does
+
+The frontend is a single-page React dashboard tailored for command and control.
+
+### Core frontend behavior
+
+- Uses React Router for different operational screens
+- Keeps global state for:
+  - complaints
+  - hotspots
+  - ATM locations
+  - police stations
+  - model stats
+  - ML trigger status
+- Calls backend APIs on load and when the user refreshes data
+- Displays live intelligence panels, maps, tables, and status indicators
+- Uses mock data as initial fallback while real backend data loads
+
+The app shell loads all relevant data through a central function and passes it as props to pages.
+
+---
+
+## Main pages and what they mean
+
+### 1. Dashboard page
+This is the executive overview screen.
+
+It shows:
+- total complaints
+- active hotspots
+- fraud volume
+- P1/P2/P3 counts
+- risk summary cards
+- recent alerts
+- model health
+- operational panels
+
+Purpose:
+- central monitoring and situational awareness
+- quick answer: what is happening now and how severe is it?
+
+Data sources:
+- stats endpoint
+- hotspots endpoint
+- complaints endpoint
+- ATM/police data indirectly through hotspot details
+
+---
+
+### 2. GIS Heatmap page
+This is the map-based risk visualization screen.
+
+It shows:
+- complaint clusters on a map
+- ATM locations
+- police stations
+- predicted hotspots with colored risk circles
+- state filters and category filters
+- spatial cluster detail
+
+Purpose:
+- find where fraud activity is concentrating geographically
+- understand which ATM regions are likely to be used for cash withdrawal
+- support tactical response planning
+
+Data sources:
+- complaints list
+- hotspots list
+- ATM data
+- police station data
+- real-time Supabase insert events for new hotspots
+
+This page uses Leaflet and react-leaflet for map rendering.
+
+---
+
+### 3. LEA Dispatch page
+This is the law enforcement action screen.
+
+It shows:
+- active high-risk incidents
+- assigned patrol teams
+- dispatch states like DISPATCHED, ON_SCENE, PENDING_APPROVAL
+- location, district, bank, police station, selected incident details
+- time remaining for crisis window
+
+Purpose:
+- help police and intelligence units act on hotspots
+- convert a risk alert into a dispatch action
+- keep field operations organized
+
+Data sources:
+- hotspots with status not resolved
+- update calls to acknowledge and resolve endpoints
+
+---
+
+### 4. Alerts Center page
+This is the live alert stream.
+
+It shows:
+- P1/P2/P3 alert feed
+- alert tier filters
+- broadcast and acknowledgements
+- notification channel summary
+- emergency push actions
+
+Purpose:
+- notify agencies about active risk zones
+- give operators a place to acknowledge and escalate issues
+
+Data sources:
+- hotspot dataset
+- real-time Supabase table subscriptions for new hotspot rows
+- status update calls to acknowledge endpoint
+
+This page includes broadcast simulation and status updates.
+
+---
+
+### 5. NCRP Complaints page
+This is the complaint intake and complaint tracking page.
+
+It shows:
+- complaint records
+- search by victim name, phone, complaint number, fraud type, district, etc.
+- complaint submission form
+- status and location details
+
+Purpose:
+- capture cybercrime complaint data from victims or staff
+- support investigation by incident number and location
+- feed the analytics engine
+
+Data source:
+- complaints endpoint
+- POST complaint submission to backend
+- complaint tracking by acknowledgement number
+
+---
+
+### 6. Analytics Reports page
+This is the reporting and decision-support screen.
+
+It likely summarizes:
+- fraud pattern trends
+- risk metrics
+- model performance
+- geographic concentrations
+- operational summaries
+
+Purpose:
+- show strategic insight for leadership and MHA-level analysis
+- support decisions beyond day-to-day tactical response
+
+Data sources:
+- stats from prediction endpoints
+- model runs
+- hotspot and complaint summaries
+
+---
+
+### 7. Auth / Login landing page
+This is the initial entry screen.
+
+Purpose:
+- gate the app
+- let different user types enter the system
+- direct users to operational or citizen-related views
+
+This is more of a landing experience than a real business function.
+
+---
+
+### 8. Command Center and other feature pages
+Some pages are present but currently disabled or partially implemented, such as:
+- Command center
+- Field officer portal
+- Citizen portal
+- Mule graph explorer
+
+These are intended for specialized use cases but are not the main active operational flow.
+
+---
+
+## How data is fetched and displayed
+
+### Startup data loading
+
+The app starts by loading data through a single central function in the main app component.
+
+It does a Promise.all to fetch:
+- stats
+- hotspots
+- complaints
+- ATMs
+- police stations
+- model runs
+
+This means the dashboard is populated in one shot with all major intelligence data.
+
+### API layer
+
+The frontend API helper wraps fetch calls and sends requests to the backend base URL. It includes:
+- getComplaints
+- getHotspots
+- getStats
+- getAtms
+- getPoliceStations
+- getModelRuns
+- triggerPredictions
+- acknowledgeAlert
+- resolveAlert
+
+So the UI does not talk directly to the database; it talks to the backend API.
+
+### Data transformation layer
+
+The backend is responsible for shaping database results into the exact format the frontend expects.
+
+Examples:
+- Complaint rows are mapped to include victim, fraud, address, district, state, latitude, and longitude
+- Hotspot rows add ATM name, risk tier, police station info, actionable intelligence, and model metadata
+- Geometry fields are parsed from PostGIS WKB/WKT to latitude/longitude values
+
+This makes the frontend simple and reduces map and UI errors.
+
+---
+
+## Database model and business meaning
+
+The database schema revolves around risk analysis and operations.
+
+### Tables
+
+- police_stations
+  - LEA jurisdiction mapping
+  - used to assign police stations to hotspot alerts
+
+- cybercrime_complaints
+  - victim and fraud complaint data
+  - the main input for predictive analysis
+
+- atm_locations
+  - candidate cash withdrawal points
+  - critical because hotspot prediction is usually centered around ATM risk clusters
+
+- model_runs
+  - records model versions and metrics
+  - supports explainability and auditability
+
+- predicted_hotspots
+  - the actual forecast output
+  - includes risk_score, cluster_id, radius, predicted_window, ATM link, assigned police station, status
+
+These tables are spatially aware using PostGIS geography points, which is essential because the app is geospatial.
+
+---
+
+## End-to-end flow of the system
+
+1. Cybercrime complaint is entered or loaded
+   - complaint record gets stored in the complaints table
+
+2. Backend exposes complaint and prediction APIs
+   - the frontend queries them
+
+3. Prediction engine identifies risky clusters
+   - hotspot records are generated around ATM/cashout areas
+
+4. Frontend page loads hotspot + complaint + ATM + police data
+   - map, stats, and alerts become live
+
+5. Operators act on the data
+   - acknowledge alert
+   - assign dispatch
+   - resolve incident
+
+6. Institutional intelligence is visible to leaders
+   - dashboards, summary cards, reports, risk scores, and alerts
+
+This is the core operational loop of the project.
+
+---
+
+## Overall takeaway
+
+This is a cybercrime risk intelligence platform designed for proactive law enforcement. The frontend acts like a command center, the backend acts like the intelligence API, and the database holds all spatial and operational evidence. The app focuses on predicting likely ATM cash withdrawal hotspots before fraud is fully executed, then enabling quick LEA action and response coordination.
+
+If you want, I can also turn this into:
+- a cleaner architecture diagram in text form
+- a page-by-page component breakdown
+- a developer handoff summary for team onboarding
+- a “how to run and understand this app” guide for new contributors
+
+Field officer App:
+TRINETRA Field Officer App — MVP Complete
+Your bilingual (English/हिंदी) cybercrime field-officer app is live, connected to your Supabase data, and fully tested.
+
+Login → 3 tabs (Alerts, Complaints, Profile) in a dark navy law-enforcement theme, with an instant EN|हिं toggle on every screen that's saved across restarts.
+Alerts: P1/P2/P3 colour-coded hotspot cards with risk %, countdown timer, ATM & station info, Acknowledge (updates Supabase + green toast) and Navigate (opens Google Maps), plus a "My District vs All India" filter, pull-to-refresh, and a P1 critical vibration + full-screen alert.
+Complaints & Profile: searchable complaints with status filters, ₹ Indian-format amounts and IST dates; profile shows officer badge, live quick-stats, 1930/I4C tap-to-call helplines, sound toggle and logout.
+Important setup notes:
+
+Login PIN is 1234 (badge = any text). For populated alerts pick Central Delhi or Rohini.
+Your data connects securely: since Supabase Row Level Security blocks the public key, your secret key stays safely on the server and the app talks to it — nothing sensitive ships in the app.
+Your seeded alert time-windows are already in the past, so timers show "EXPIRED" but the alert cards still appear. To see live countdowns and the P1 pop-up in action, add a few rows with a future predicted_window_end.
+Vibration & notification sound are best experienced on a real Android build (after Publish), not the web preview.
+

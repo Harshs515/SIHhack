@@ -63,13 +63,14 @@ function mapComplaint(row, fallbackLat, fallbackLng) {
   return {
     ...row,
 
-    // Map database fields to frontend expectations
+    // Map database fields to frontend expectations (Fix 2A)
     acknowledgement_no: row.complaint_id || rawData.acknowledgement_no || row.id,
     fraud_category: row.crime_category || rawData.fraud_category || 'Unknown Fraud',
-    fraud_amount: row.amount || rawData.fraud_amount || rawData.amount_lost || 0,
+    fraud_amount: parseFloat(row.amount || rawData.fraud_amount || rawData.amount_lost || 0) || 0,
+    incident_timestamp: row.complaint_date || rawData.incident_timestamp || row.created_at,
     
-    // Extract victim details from raw_reference
-    victim_name: rawData.victim_name || 'Unknown',
+    // Extract victim details: use complainant_type as victim_name (BUG 3A)
+    victim_name: row.complainant_type || row.victim_name || rawData.victim_name || 'Not provided',
     victim_phone: rawData.victim_phone || rawData.victim_contact || null,
     victim_contact: rawData.victim_phone || rawData.victim_contact || null,
     victim_bank: rawData.victim_bank || null,
@@ -78,6 +79,9 @@ function mapComplaint(row, fallbackLat, fallbackLng) {
 
     latitude,
     longitude,
+    // Also expose as lat/lng for map components
+    lat: latitude,
+    lng: longitude,
 
     district:
       row.district ||
@@ -98,7 +102,7 @@ function mapComplaint(row, fallbackLat, fallbackLng) {
 // ==================================================
 router.get('/', async (req, res) => {
   try {
-    const { search, limit } = req.query;
+    const { search, limit, status } = req.query;
 
     let query = supabase
       .from('complaints')
@@ -107,18 +111,20 @@ router.get('/', async (req, res) => {
         ascending: false,
       });
 
-    // Apply search filter if provided
+    // Apply status filter if provided (Fix 2B)
+    if (status && status.trim() && status.toUpperCase() !== 'ALL') {
+      query = query.eq('status', status.trim());
+    }
+
+    // Apply search filter if provided — use actual complaints table column names
     if (search && search.trim()) {
       const searchTerm = search.trim().toLowerCase();
       query = query.or(
-        `acknowledgement_no.ilike.%${searchTerm}%,` +
-        `victim_name.ilike.%${searchTerm}%,` +
-        `victim_phone.ilike.%${searchTerm}%,` +
-        `victim_contact.ilike.%${searchTerm}%,` +
-        `fraud_category.ilike.%${searchTerm}%,` +
-        `mule_bank_name.ilike.%${searchTerm}%,` +
+        `complaint_id.ilike.%${searchTerm}%,` +
+        `crime_category.ilike.%${searchTerm}%,` +
         `district.ilike.%${searchTerm}%,` +
-        `state.ilike.%${searchTerm}%`
+        `state.ilike.%${searchTerm}%,` +
+        `city.ilike.%${searchTerm}%`
       );
     }
 
@@ -159,15 +165,15 @@ router.get('/', async (req, res) => {
 
 // ==================================================
 // GET /api/complaints/:ackNo
-// Track complaint by acknowledgement number
+// Track complaint by acknowledgement number (BUG 5A)
 // ==================================================
 router.get('/:ackNo', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data: complaint, error } = await supabase
       .from('complaints')
       .select('*')
       .eq(
-        'acknowledgement_no',
+        'complaint_id',   // Fix 2C: use complaint_id column (text ack number)
         req.params.ackNo
       )
       .maybeSingle();
@@ -176,37 +182,59 @@ router.get('/:ackNo', async (req, res) => {
       throw error;
     }
 
-    if (!data) {
+    if (!complaint) {
       return res.status(404).json({
         success: false,
         error: 'Complaint not found',
       });
     }
 
-    const complaint = mapComplaint(data);
-
-    // Fetch linked/closest active hotspot for tactical intelligence
-    const { data: hotspots } = await supabase
+    // Join predicted_hotspots using integer FK complaint.id (BUG 5A)
+    let prediction = null;
+    const { data: hotspot } = await supabase
       .from('predicted_hotspots')
-      .select('*')
-      .in('status', ['ACTIVE', 'ACKNOWLEDGED'])
-      .limit(5);
+      .select('alert_level, risk_score, district, state, actionable_intelligence, status, predicted_window_end, prediction_source, session_id, session_status')
+      .eq('complaint_id', complaint.id)   // integer FK join
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    const linkedHotspot = (hotspots || []).find(h => 
-      h.district?.toLowerCase() === complaint.district?.toLowerCase() ||
-      h.state?.toLowerCase() === complaint.state?.toLowerCase()
-    ) || (hotspots && hotspots[0]) || null;
-
-    if (linkedHotspot) {
-      complaint.alert_level = linkedHotspot.alert_level || (linkedHotspot.risk_score >= 0.8 ? 'P1' : 'P2');
-      complaint.risk_score = linkedHotspot.risk_score;
-      complaint.actionable_intelligence = linkedHotspot.actionable_intelligence || 'Real-time high risk ATM withdrawal anomaly detected.';
-      complaint.linked_hotspot = linkedHotspot;
+    if (hotspot) {
+      prediction = hotspot;
     }
+
+    const mapped = mapComplaint(complaint);
+
+    const enrichedStatus = prediction
+      ? (prediction.alert_level ? 'PROCESSED' : complaint.status)
+      : complaint.status;
+
+    const predictionData = prediction ? {
+      alert_level:             prediction.alert_level,
+      risk_score:              prediction.risk_score,
+      predicted_district:      prediction.district,
+      predicted_state:         prediction.state,
+      actionable_intelligence: prediction.actionable_intelligence,
+      predicted_window_end:    prediction.predicted_window_end,
+      prediction_source:       prediction.prediction_source,
+      session_intercepted:     prediction.prediction_source === 'SESSION_INTERCEPT',
+    } : null;
 
     res.json({
       success: true,
-      data: complaint,
+      acknowledgement_no:     complaint.complaint_id,
+      fraud_category:         complaint.crime_category,
+      amount:                 complaint.amount,
+      district:               complaint.district,
+      state:                  complaint.state,
+      filed_at:               complaint.complaint_date || complaint.created_at,
+      status:                 enrichedStatus,
+      prediction:             predictionData,
+      data: {
+        ...mapped,
+        status: enrichedStatus,
+        prediction: predictionData,
+      },
     });
 
   } catch (error) {

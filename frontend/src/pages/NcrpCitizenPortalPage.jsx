@@ -430,39 +430,94 @@ export default function NcrpCitizenPortalPage({ complaints = MOCK_COMPLAINTS, on
           </span>
         )}
 
-        {searchedComplaint && searchedComplaint !== 'NOT_FOUND' && (
-          <div style={{
-            background: 'rgba(0, 229, 255, 0.08)',
-            border: '1px solid rgba(0, 229, 255, 0.25)',
-            padding: '14px 18px',
-            borderRadius: '10px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '12px'
-          }}>
-            <div>
-              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#fff' }}>
-                #{searchedComplaint.acknowledgement_no} • {searchedComplaint.victim_name}
-              </div>
-              <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                {searchedComplaint.fraud_category} • ₹{parseFloat(searchedComplaint.fraud_amount || 0).toLocaleString('en-IN')} • {searchedComplaint.district}
-              </div>
-              <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: '6px' }}>
-                Alert level: {searchedComplaint.alert_level || 'Not processed'} • Predicted district: {searchedComplaint.predicted_district || 'Not processed'}
-              </div>
-              {searchedComplaint.actionable_intelligence && (
-                <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                  Actionable intelligence: {searchedComplaint.actionable_intelligence}
+        {searchedComplaint && searchedComplaint !== 'NOT_FOUND' && (() => {
+          const resData = searchedComplaint.data || searchedComplaint;
+          const pred = resData.prediction || (resData.alert_level ? {
+            alert_level: resData.alert_level,
+            risk_score: resData.risk_score,
+            predicted_district: resData.predicted_district || resData.district,
+            predicted_state: resData.predicted_state || resData.state,
+            actionable_intelligence: resData.actionable_intelligence,
+            session_intercepted: resData.prediction_source === 'SESSION_INTERCEPT'
+          } : null);
+
+          return (
+            <div style={{
+              background: 'rgba(0, 229, 255, 0.08)',
+              border: '1px solid rgba(0, 229, 255, 0.25)',
+              padding: '16px 20px',
+              borderRadius: '10px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px'
+            }}>
+              {pred ? (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ color: '#00e676', fontWeight: 800, fontSize: '0.92rem' }}>
+                      ✅ Complaint Processed
+                    </span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      #{resData.acknowledgement_no || resData.complaint_id}
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: '0.84rem', color: '#fff', marginBottom: '4px' }}>
+                    Alert Level:
+                    <span style={{
+                      color: pred.alert_level === 'P1' ? '#DC2626'
+                           : pred.alert_level === 'P2' ? '#F59E0B'
+                           : '#10B981',
+                      fontWeight: 800,
+                      marginLeft: '6px'
+                    }}>
+                      {pred.alert_level}
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                    Predicted Zone: <strong>{pred.predicted_district || pred.district}, {pred.predicted_state || pred.state}</strong>
+                  </div>
+
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                    Risk Score: <strong>{((pred.risk_score || 0) * 100).toFixed(0)}%</strong>
+                  </div>
+
+                  {pred.session_intercepted && (
+                    <div style={{ fontSize: '0.82rem', color: '#00e5ff', margin: '4px 0', fontWeight: 700 }}>
+                      🔗 Transaction session intercepted — case actively tracked
+                    </div>
+                  )}
+
+                  {pred.predicted_window_end && (
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      Action window closes:{' '}
+                      {new Date(pred.predicted_window_end).toLocaleString('en-IN', {
+                        hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short'
+                      })}
+                    </div>
+                  )}
+
+                  {pred.actionable_intelligence && (
+                    <div style={{ fontSize: '0.76rem', color: '#cbd5e1', marginTop: '6px', background: 'rgba(255,255,255,0.04)', padding: '8px 12px', borderRadius: '6px' }}>
+                      {pred.actionable_intelligence}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <span style={{ color: '#F59E0B', fontWeight: 800, fontSize: '0.92rem' }}>
+                    🔄 Under Investigation
+                  </span>
+                  <div style={{ fontSize: '0.82rem', marginTop: '6px', color: 'var(--text-secondary)' }}>
+                    Your complaint is registered. Our system is processing it.
+                    Please check again in 2–3 minutes.
+                  </div>
                 </div>
               )}
             </div>
-            <span className="pulse-badge success" style={{ fontSize: '0.72rem' }}>
-              {searchedComplaint.status || 'ACTIVE_INTERVENTION'}
-            </span>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
     </div>

@@ -49,20 +49,16 @@ export async function POST(request: Request) {
       .from('complaints')
       .insert({
         complaint_id: complaintId,
+        acknowledgement_no: payload.acknowledgement_no,
+        victim_name: payload.victim_name,
         complaint_date: payload.incident_timestamp ?? new Date().toISOString(),
         crime_category: payload.fraud_category,
         state: payload.state ?? null,
         district: payload.district ?? null,
         city: payload.city ?? null,
         amount: payload.fraud_amount ?? null,
-        complainant_type: 'citizen',
+        raw_reference: payload.transaction_id?.trim() || null,
         status: 'submitted',
-        source: 'ncrp-portal',
-        raw_reference: JSON.stringify({
-          ...payload,
-          victim_account_no: undefined,
-          mule_account_no: undefined,
-        }),
       })
       .select('id, complaint_id, status')
       .single()
