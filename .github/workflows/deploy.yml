@@ -1,0 +1,83 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - after-internal   # Deploy on every push to the default branch
+  workflow_dispatch:     # Allow manual trigger from Actions tab
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment at a time
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build production bundle
+        working-directory: frontend
+        env:
+          NODE_ENV: production
+          # GITHUB_REPOSITORY is automatically set by GitHub Actions (e.g. "Harshs515/SIHhack")
+          # vite.config.js reads this to dynamically derive the base path /SIHhack/
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          # Backend API — point to your deployed Render service
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://sih2026-backend-k5ru.onrender.com/api' }}
+          # Supabase (anon key only — safe to expose in client-side code)
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+        run: npm run build
+
+      - name: Verify dist output
+        working-directory: frontend
+        run: |
+          echo "=== dist/ contents ==="
+          ls -la dist/
+          echo "=== Checking index.html exists ==="
+          test -f dist/index.html && echo "✅ index.html found" || (echo "❌ index.html missing!" && exit 1)
+          echo "=== Checking 404.html exists ==="
+          test -f dist/404.html && echo "✅ 404.html found" || (echo "❌ 404.html missing — SPA deep-links will break!" && exit 1)
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Upload the built dist/ directory from inside frontend/
+          path: frontend/dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

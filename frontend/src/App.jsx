@@ -7,6 +7,16 @@ import {
   useLocation,
 } from "react-router-dom";
 
+// GitHub Pages SPA: strip the redirect query param injected by 404.html
+// See: https://github.com/rafgraph/spa-github-pages
+(function () {
+  const redirect = sessionStorage.redirect;
+  delete sessionStorage.redirect;
+  if (redirect && redirect !== location.href) {
+    history.replaceState(null, null, redirect);
+  }
+})();
+
 // Global Navigation & Error Boundary Components
 import Navbar from "./components/Navbar";
 import ErrorBoundary from "./components/ErrorBoundary";
