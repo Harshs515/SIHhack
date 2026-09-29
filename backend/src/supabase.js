@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const WebSocket = require('ws');
 require('dotenv').config();
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -10,11 +11,10 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   realtime: {
-    // Disable realtime — backend only needs DB queries, not WebSocket subscriptions
-    params: { eventsPerSecond: 0 },
+    // Provide ws as transport — fixes "native WebSocket not found" on Node < 22
+    transport: WebSocket,
   },
   global: {
-    // Suppress "native WebSocket not found" on older Node versions
     fetch: globalThis.fetch,
   },
 });
