@@ -8,7 +8,16 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
   throw new Error('Supabase URL or secret key is missing in .env');
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  realtime: {
+    // Disable realtime — backend only needs DB queries, not WebSocket subscriptions
+    params: { eventsPerSecond: 0 },
+  },
+  global: {
+    // Suppress "native WebSocket not found" on older Node versions
+    fetch: globalThis.fetch,
+  },
+});
 
 /**
  * Converts PostGIS Point data into latitude/longitude.
