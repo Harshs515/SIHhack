@@ -255,7 +255,8 @@ router.post('/trigger', async (req, res) => {
     let data = null;
 
     try {
-      const response = await fetch(`${mlUrl}/api/ml/process-pipeline`, {
+      const targetUrl = new URL('/api/ml/process-pipeline', mlUrl).toString();
+      const response = await fetch(targetUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });

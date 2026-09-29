@@ -24,6 +24,10 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'HEALTHY', timestamp: new Date().toISOString() });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Node.js Supabase API Backend running on port ${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Node.js Supabase API Backend running on port ${PORT}`);
+  });
+}
+
+module.exports = app;
