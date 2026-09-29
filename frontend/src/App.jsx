@@ -31,6 +31,8 @@ import AlertsCenterPage from "./pages/AlertsCenterPage";
 import NcrpComplaintsPage from "./pages/NcrpComplaintsPage";
 import AuthLandingPage from "./pages/AuthLandingPage";
 import AnalyticsReportsPage from "./pages/AnalyticsReportsPage";
+import FieldOfficerPortal from "./pages/FieldOfficerPortal";
+import NcrpCitizenPortalPage from "./pages/NcrpCitizenPortalPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import {
@@ -207,7 +209,9 @@ function AppContent({
               }
             />
 
-            {/* 7.1. NCRP Citizen Portal Simulation (temporarily disabled) */}
+            {/* 7.1. NCRP Citizen Portal Simulation */}
+            <Route path="/ncrp-portal" element={<NcrpCitizenPortalPage />} />
+            <Route path="/citizen-portal" element={<NcrpCitizenPortalPage />} />
 
             {/* 8. Executive Analytics & I4C Dossier Reports */}
             <Route
@@ -219,7 +223,15 @@ function AppContent({
               }
             />
 
-            {/* 9. Field Officer Portal (temporarily disabled) */}
+            {/* 9. Field Officer Portal */}
+            <Route
+              path="/field-officer"
+              element={
+                <ProtectedRoute allowedRoles={["field_officer", "investigator"]}>
+                  <FieldOfficerPortal />
+                </ProtectedRoute>
+              }
+            />
 
             {/* 11. Authentication Gateway (Citizen & Field Officer) */}
             <Route path="/auth" element={<AuthLandingPage />} />

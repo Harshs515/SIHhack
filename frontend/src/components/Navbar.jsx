@@ -14,7 +14,8 @@ import {
   LogOut,
 } from "lucide-react";
 import AppLogo from "./AppLogo";
-import { getSession, clearSession } from "../utils/session";
+import { getSession } from "../utils/session";
+import { useAuth } from "../context/AuthContext";
 
 // Officer / Command & Control Nav Modules
 const OFFICER_NAV_MODULES = [
@@ -34,7 +35,9 @@ export default function Navbar({
   onToggleTheme,
 }) {
   const location = useLocation();
+  const { user, logout } = useAuth();
   const session = getSession();
+  const currentUser = user || session?.profile;
   const [time, setTime] = useState("");
   const isAuthPage =
     location.pathname === "/auth" ||
@@ -166,7 +169,7 @@ export default function Navbar({
                   className="nav-pill"
                   style={{ opacity: 0.8 }}
                   title="Switch role or login as Field Officer"
-                  onClick={clearSession}
+                  onClick={logout}
                 >
                   <LogOut size={13} strokeWidth={1.8} />
                   Switch Portal / Login
@@ -201,7 +204,7 @@ export default function Navbar({
                     color: "#ff7597",
                   }}
                   title="Log out or switch role"
-                  onClick={clearSession}
+                  onClick={logout}
                 >
                   <LogOut size={13} strokeWidth={1.8} />
                   Logout / Switch
@@ -222,9 +225,9 @@ export default function Navbar({
               gap: "10px",
             }}
           >
-            {session?.profile?.name && !isAuthPage && (
+            {currentUser?.name && !isAuthPage && (
               <span
-                title={session.profile.badge || session.profile.email || ""}
+                title={currentUser.badge || currentUser.email || ""}
                 style={{
                   fontSize: "1rem",
                   fontWeight: 500,

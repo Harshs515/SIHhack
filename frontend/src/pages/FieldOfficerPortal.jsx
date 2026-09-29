@@ -24,7 +24,8 @@ import {
 } from "lucide-react";
 import AppLogo from "../components/AppLogo";
 import { FIELD_OFFICERS } from "../data/personnel";
-import { getSession, clearSession } from "../utils/session";
+import { getSession } from "../utils/session";
+import { useAuth } from "../context/AuthContext";
 import { supabase } from "../services/realtimeClient";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8001/api";
@@ -656,6 +657,7 @@ function mapHotspotToNotif(h, district) {
 
 function PortalDashboard({ officer, hotspots = [], setHotspots, stats = {} }) {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [notifications, setNotifications] = useState(() => {
     if (hotspots && hotspots.length > 0) {
       const active = hotspots
@@ -903,8 +905,8 @@ function PortalDashboard({ officer, hotspots = [], setHotspots, stats = {} }) {
           >
             {/* Logout Button */}
             <button
-              onClick={() => {
-                clearSession();
+              onClick={async () => {
+                await logout();
                 navigate("/auth");
               }}
               style={{

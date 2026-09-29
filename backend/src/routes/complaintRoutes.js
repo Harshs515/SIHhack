@@ -52,12 +52,21 @@ function mapComplaint(row, fallbackLat, fallbackLng) {
   let rawData = {};
   if (row.raw_reference) {
     try {
-      rawData = typeof row.raw_reference === 'string' 
-        ? JSON.parse(row.raw_reference) 
-        : row.raw_reference;
+      if (typeof row.raw_reference === 'string') {
+        // Only try to parse if it looks like a JSON object or array
+        const trimmed = row.raw_reference.trim();
+        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+          rawData = JSON.parse(row.raw_reference);
+        } else {
+          // It's a regular string (like a UTR number), not JSON
+          rawData = { reference_string: row.raw_reference };
+        }
+      } else {
+        rawData = row.raw_reference;
+      }
     } catch (e) {
-      console.warn('Failed to parse raw_reference:', e);
-    }
+      console.warn('Failed to parse raw_reference:', e.message);
+      }
   }
 
   return {
